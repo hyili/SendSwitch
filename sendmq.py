@@ -2,9 +2,16 @@
 import pika
 import uuid
 import sys
+import time
+import datetime
+import json
 
 class server():
-    def __init__(self, exchange_id, routing_keys):
+    def __init__(self, exchange_id="random", routing_keys=["random"], host="localhost", silent_mode=False):
+        # rabbitmq host
+        self.host = host
+        self.silent_mode = silent_mode
+
         # corr_id: set for checking if response is for me
         self.corr_id = str(uuid.uuid4())
 
@@ -13,54 +20,76 @@ class server():
         self.routing_keys = routing_keys
 
         # connection to rabbitmq & channel declaration
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
         self.channel = self.connection.channel()
 
         # declare exchange
-        self.channel.exchange_declare(exchange=self.exchange_id, exchange_type="direct")
+        self.channel.exchange_declare(exchange=self.exchange_id,
+                exchange_type="direct",
+                durable=True)
 
         # declare response queue
         # callback_queue: a queue for client use
         self.response = self.channel.queue_declare(exclusive=True)
-        self.callback_queue_name = self.response.method.queue
+        self.response_queue_id = self.response.method.queue
 
         # result: storing result
-        self.result = None
+        self.result = []
 
     def __del__(self):
         # close connection: after destruction
+#        self.channel.exchange_delete(exchange=self.exchange_id)
+        self.channel.queue_delete(queue=self.response_queue_id)
         self.connection.close()
 
     def consume_response(self, ch, method, properties, body):
         if self.corr_id == properties.correlation_id:
-            print(" [*] Receive %s" % body)
-            self.result = body
+            # TODO: Message Controller
+            if not self.silent_mode:
+                print(" [*] Receive %s" % body)
+            self.result.append(body)
         else:
-            print(" [*] Not mine. Waiting...")
+            # TODO: Message Controller
+            if not self.silent_mode:
+                print(" [*] Not mine. Waiting...")
 
-    # Non-Blocking 
+    # Non-Blocking
     def sendMsg(self, msg):
         # queue publish, send out msg
+        timestamp = time.time()
+        # message will not actually be removed when times up
+        # it will be removed until message head up the limit
+        expire = 600 * 1000
+        data = {
+            "created": int(timestamp),
+            "expire": expire,
+            "data": msg
+        }
         for routing_key in self.routing_keys:
             self.channel.basic_publish(exchange=self.exchange_id,
                     routing_key=routing_key,
                     properties=pika.BasicProperties(
-                            reply_to=self.callback_queue_name,
-                            correlation_id=self.corr_id
+                            reply_to=self.response_queue_id,
+                            correlation_id=self.corr_id,
+                            timestamp=int(timestamp),
+                            expiration=str(expire)
                     ),
-                    body=msg
+                    body=json.dumps(data)
             )
-            print(" [*] Sent %s to %s" % (msg, routing_key))
+            # TODO: Message Controller
+            if not self.silent_mode:
+                print(" [*] Sent %s to %s" % (msg, routing_key))
 
-        # set consume_response to consume the response
+        # set consume_response to consume the response, and use only once
         self.channel.basic_consume(self.consume_response,
                 no_ack=True,
-                queue=self.callback_queue_name
+                exclusive=True,
+                queue=self.response_queue_id
         )
 
         self.connection.process_data_events()
 
-    # Non-Blocking 
+    # Non-Blocking
     def getResult(self):
         # dispatch consume_response using process_data_events() until data acquired
         # http://pika.readthedocs.io/en/0.10.0/modules/adapters/blocking.html
@@ -76,9 +105,9 @@ if __name__ == "__main__":
     if len(args) >= 3:
         S = server(exchange_id=args[1], routing_keys=args[2:])
         S.sendMsg("example_message")
-        R = None
+        R = S.getResult()
         # TODO: timeout
-        while R is None:
+        while len(R) != len(args) - 2:
             R = S.getResult()
     else:
         print("./sendmq.py [exchange_id] [routing_key] ...")

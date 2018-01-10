@@ -3,6 +3,7 @@
 import signal
 import sys
 import os
+import time
 
 import sendmq
 
@@ -10,17 +11,13 @@ import sendmq
 INSPECT_DIR = "/tmp/"
 TEMP_FILE = "temp.in"
 SENDMAIL = "/usr/sbin/sendmail -G -i"
+counter = 0
+max_retries = 5
 
 # reading args
 sendmail_args = sys.argv[1:]
 sender = sys.argv[2]
 recipient = sys.argv[4]
-
-# change current directory
-
-# exit code
-EX_TEMPFAIL = 75
-EX_UNAVAILABLE = 69
 
 # signal handler
 def finish(code):
@@ -28,7 +25,7 @@ def finish(code):
 
 def handler(signum, frame):
     print("Quit")
-    finish(EX_TEMPFAIL)
+    finish(os.EX_TEMPFAIL)
 
 signal.signal(signal.SIGINT, handler)
 signal.signal(signal.SIGTERM, handler)
@@ -45,13 +42,17 @@ try:
             temp.write(line)
 except Exception as e:
     print(e)
-    exit(EX_TEMPFAIL)
+    exit(os.EX_TEMPFAIL)
 
 # filtering
-S = server(exchange_id="hello", routing_keys=["hello"])
+S = sendmq.server(exchange_id="postfix",
+        routing_keys=[recipient],
+        silent_mode=True)
 S.sendMsg(msg)
-R = None
-while R is None:
+R = S.getResult()
+while len(R) != 1 and counter < max_retries:
+    counter += 1
+    time.sleep(5)
     R = S.getResult()
 
 # write back to mail server
@@ -66,9 +67,10 @@ if R:
             for line in temp:
                 pipe.write(line)
 
-            exit(pipe.close())
+            pipe.close()
+            exit(os.EX_OK)
     except Exception as e:
         print(e)
-        exit(EX_TEMPFAIL)
+        exit(os.EX_TEMPFAIL)
 else:
-    exit(EX_UNAVAILABLE)
+    exit(os.EX_UNAVAILABLE)
