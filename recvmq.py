@@ -5,6 +5,7 @@ import json
 import time
 import datetime
 import email
+from email.header import decode_header
 
 class client():
     def __init__(self, exchange_id="random", routing_key="random", host="localhost", silent_mode=False):
@@ -47,18 +48,43 @@ class client():
         print(" [*] header:")
         for pp_key in set(p.keys()):
             pp_value = p.get_all(pp_key, None)
+            # TODO: concat 2 header.from into 1
             if isinstance(pp_value, list):
                 for element in pp_value:
-                    print(" [-] %s: %s" % (pp_key, element))
+                    pair = decode_header(element)
+                    content = ""
+                    for (_content, _charset) in pair:
+                        if _charset:
+                            content = "%s %s" % (content, _content.decode(_charset))
+                        else:
+                            if isinstance(_content, (bytes, bytearray)):
+                                content = "%s %s" % (content, _content.decode())
+                            else:
+                                content = "%s %s" % (content, _content)
+                    print(" [-] %s:%s" % (pp_key, content))
             else:
-                print(" [-] %s: %s" % (pp_key, pp_value))
-
+                pair = decode_header(pp_value)
+                content = ""
+                for (_content, _charset) in pair:
+                    if _charset:
+                        content = "%s %s" % (content, _content.decode(_charset))
+                    else:
+                        if isinstance(_content, (bytes, bytearray)):
+                            content = "%s %s" % (content, _content.decode())
+                        else:
+                            content = "%s %s" % (content, _content)
+                print(" [-] %s:%s" % (pp_key, content))
         print(" [*] payload:")
         if p.is_multipart():
             for payload in p.get_payload():
-                print(" [-] %s" % payload.get_payload())
+                charset = payload.get_content_charset()
+                if charset:
+                    print(" [-] %s" % payload.get_payload(decode=True).decode(charset))
+                else:
+                    print(" [-] %s" % payload.get_payload(decode=True))
         else:
-            print(" [-] %s" % p.get_payload())
+            charset = p.get_content_charset()
+            print(" [-] %s" % p.get_payload(decode=True).decode(charset))
 
 
     def consume_request(self, channel, method, properties, body):

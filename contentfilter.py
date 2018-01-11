@@ -73,4 +73,4 @@ if R:
         print(e)
         exit(os.EX_TEMPFAIL)
 else:
-    exit(os.EX_UNAVAILABLE)
+    exit(os.EX_TEMPFAIL)

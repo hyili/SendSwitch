@@ -1,34 +1,37 @@
 # Postfix_Spammer_Filter
 A content filter function using MessageQueue with RPC implementation.
 
-# contentfilter.py
+## contentfilter.py
 content filter in postfix
-## usage
-- in master.cf
+#### usage
+in master.cf
 ```
+smtp      inet  n       -       n       -       -       smtpd
+	-o content_filter=filter:dummy
+
 filter		unix	-	n	n	-	1	pipe
 	flags=Rq user=whoyouare null_sender=
 	argv=/path/to/contentfilter.py -f ${sender} -- ${recipient}
 ```
 
-# sendmq.py
+## sendmq.py
 send message to recvmq.py and wait for result
-## usage
+#### usage
 ```
 ./sendmq.py [exchange_id] [routing_key] ...
 ```
 
-# recvmq.py
+## recvmq.py
 recv message from sendmq.py and then send back the result
-## usage
+#### usage
 ```
 ./recvmq.py [exchange_id] [routing_key]
 ```
 
-# send_loop.py
+## send_loop.py
 used for performance testing
 
-# TODO
+## TODO
 - [x] Content Filter In Postfix
 - [x] Server with Send Function
 - [x] Client with Recv Function
