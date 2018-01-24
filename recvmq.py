@@ -5,6 +5,7 @@ import json
 import time
 import datetime
 import email
+import requests
 from email.header import decode_header
 
 class client():
@@ -96,7 +97,10 @@ class client():
             print(" [*] Receive %s" % data)
 
         # email handler
-        self.email_handler(data["data"])
+        try:
+            self.email_handler(data["data"])
+        except Exception as e:
+            print(e)
 
         # resoponse message
         msg = "OK"
@@ -140,7 +144,12 @@ class client():
 # start client
 if __name__ == "__main__":
     args = sys.argv
-    if len(args) == 3:
+    if len(args) == 1:
+        r = requests.get("http://hyili.idv.tw:60666/routingkey")
+        data = r.json()
+        C = client(exchange_id="mail", routing_key=data["routing_key"])
+        C.run()
+    elif len(args) == 3:
         C = client(exchange_id=args[1], routing_key=args[2])
         C.run()
     else:

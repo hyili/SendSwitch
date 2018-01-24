@@ -5,6 +5,7 @@ import sys
 import time
 import datetime
 import json
+import requests
 
 class server():
     def __init__(self, exchange_id="random", routing_keys=["random"], host="localhost", silent_mode=False):
@@ -102,7 +103,12 @@ class server():
 # start server
 if __name__ == "__main__":
     args = sys.argv
-    if len(args) >= 3:
+    if len(args) == 1:
+        r = requests.get("http://hyili.idv.tw:60666/routingkey")
+        data = r.json()
+        S = server(exchange_id="mail", routing_keys=[data["routing_key"]])
+        S.sendMsg("example_message")
+    elif len(args) >= 3:
         S = server(exchange_id=args[1], routing_keys=args[2:])
         S.sendMsg("example_message")
         R = S.getResult()
