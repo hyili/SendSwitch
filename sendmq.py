@@ -108,6 +108,10 @@ if __name__ == "__main__":
         data = r.json()
         S = server(exchange_id="mail", routing_keys=[data["routing_key"]])
         S.sendMsg("example_message")
+        R = S.getResult()
+        # TODO: timeout
+        while len(R) == 0:
+            R = S.getResult()
     elif len(args) >= 3:
         S = server(exchange_id=args[1], routing_keys=args[2:])
         S.sendMsg("example_message")

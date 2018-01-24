@@ -10,6 +10,9 @@ from email.header import decode_header
 
 class client():
     def __init__(self, exchange_id="random", routing_key="random", host="localhost", silent_mode=False):
+        # credentials
+        self.credentials = pika.PlainCredentials('user', 'pass')
+
         # rabbitmq host
         self.host = host
         self.silent_mode = silent_mode
@@ -19,7 +22,7 @@ class client():
         self.routing_key = routing_key
 
         # connection to rabbitmq & channel declaration
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, virtual_host="/", credentials=self.credentials))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
 
@@ -147,7 +150,7 @@ if __name__ == "__main__":
     if len(args) == 1:
         r = requests.get("http://hyili.idv.tw:60666/routingkey")
         data = r.json()
-        C = client(exchange_id="mail", routing_key=data["routing_key"])
+        C = client(exchange_id="mail", routing_key=data["routing_key"], host="hostname")
         C.run()
     elif len(args) == 3:
         C = client(exchange_id=args[1], routing_key=args[2])
