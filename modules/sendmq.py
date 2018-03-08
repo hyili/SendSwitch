@@ -5,8 +5,9 @@ import sys
 import time
 import datetime
 import json
+import requests
 
-class server():
+class sender():
     def __init__(self, exchange_id="random", routing_keys=["random"], host="localhost", silent_mode=False):
         # rabbitmq host
         self.host = host
@@ -29,7 +30,7 @@ class server():
                 durable=True)
 
         # declare response queue
-        # callback_queue: a queue for client use
+        # callback_queue: a queue for receiver use
         self.response = self.channel.queue_declare(exclusive=True)
         self.response_queue_id = self.response.method.queue
 
@@ -99,15 +100,27 @@ class server():
         return self.result
 
 
-# start server
+# start sender
 if __name__ == "__main__":
     args = sys.argv
-    if len(args) >= 3:
-        S = server(exchange_id=args[1], routing_keys=args[2:])
-        S.sendMsg("example_message")
-        R = S.getResult()
-        # TODO: timeout
-        while len(R) != len(args) - 2:
+    try:
+        if len(args) == 1:
+            r = requests.get("http://{localhost}:60666/routingkey")
+            data = r.json()
+            S = sender(exchange_id="mail", routing_keys=[data["routing_key"]])
+            S.sendMsg("example_message")
             R = S.getResult()
-    else:
+            # TODO: timeout
+            while len(R) == 0:
+                R = S.getResult()
+        elif len(args) >= 3:
+            S = sender(exchange_id=args[1], routing_keys=args[2:])
+            S.sendMsg("example_message")
+            R = S.getResult()
+            # TODO: timeout
+            while len(R) != len(args) - 2:
+                R = S.getResult()
+        else:
+            print("./sendmq.py [exchange_id] [routing_key] ...")
+    except Exception as e:
         print("./sendmq.py [exchange_id] [routing_key] ...")

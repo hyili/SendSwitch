@@ -20,6 +20,8 @@ send message to recvmq.py and wait for result
 ```
 ./sendmq.py [exchange_id] [routing_key] ...
 ```
+#### note
+please change "{localhost}" to your server ip
 
 ## recvmq.py
 recv message from sendmq.py and then send back the result
@@ -27,6 +29,17 @@ recv message from sendmq.py and then send back the result
 ```
 ./recvmq.py [exchange_id] [routing_key]
 ```
+#### note
+please change "{localhost}" to your server ip
+
+## apiserver.py
+token server implementation using flask
+#### usage
+```
+./apiserver.py
+```
+#### note
+please change "{localhost}" to your server ip
 
 ## send_loop.py
 used for performance testing

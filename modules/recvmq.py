@@ -5,10 +5,14 @@ import json
 import time
 import datetime
 import email
+import requests
 from email.header import decode_header
 
-class client():
-    def __init__(self, exchange_id="random", routing_key="random", host="localhost", silent_mode=False):
+class receiver():
+    def __init__(self, exchange_id="random", routing_key="random", host="localhost", silent_mode=False, user="user", password="pass"):
+        # credentials
+        self.credentials = pika.PlainCredentials(user, password)
+
         # rabbitmq host
         self.host = host
         self.silent_mode = silent_mode
@@ -18,7 +22,7 @@ class client():
         self.routing_key = routing_key
 
         # connection to rabbitmq & channel declaration
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, virtual_host="/", credentials=self.credentials))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
 
@@ -96,7 +100,10 @@ class client():
             print(" [*] Receive %s" % data)
 
         # email handler
-        self.email_handler(data["data"])
+        try:
+            self.email_handler(data["data"])
+        except Exception as e:
+            print(e)
 
         # resoponse message
         msg = "OK"
@@ -137,11 +144,19 @@ class client():
         print(" [*] Waiting for messages. To exit press CTRL+C")
         self.channel.start_consuming()
 
-# start client
+# start receiver
 if __name__ == "__main__":
     args = sys.argv
-    if len(args) == 3:
-        C = client(exchange_id=args[1], routing_key=args[2])
-        C.run()
-    else:
-        print("./recvmq.py [exchange_id] [routing_key]")
+    try:
+        if len(args) == 3:
+            r = requests.get("http://{localhost}:60666/routingkey")
+            data = r.json()
+            C = receiver(exchange_id="mail", routing_key=data["routing_key"], host="hostname", user=args[1], password=args[2])
+            C.run()
+        elif len(args) == 5:
+            C = receiver(exchange_id=args[1], routing_key=args[2], user=args[3], password=args[4])
+            C.run()
+        else:
+            print("./recvmq.py [exchange_id] [routing_key] [user] [password]")
+    except Exception as e:
+        print("./recvmq.py [exchange_id] [routing_key] [user] [password]")

@@ -5,6 +5,7 @@ import sys
 import os
 import time
 
+sys.path.append("../modules/")
 import sendmq
 
 # definition
@@ -45,8 +46,8 @@ except Exception as e:
     exit(os.EX_TEMPFAIL)
 
 # filtering
-S = sendmq.server(exchange_id="postfix",
-        routing_keys=[recipient],
+S = sendmq.sender(exchange_id="mail",
+        routing_keys=["mail.%s" % (recipient)],
         silent_mode=True)
 S.sendMsg(msg)
 R = S.getResult()
