@@ -32,7 +32,7 @@ class receiver():
                 durable=True)
 
         # declare request queue where request comes in
-        self.request = self.channel.queue_declare(exclusive=True)
+        self.request = self.channel.queue_declare(queue=self.routing_key)
         self.request_queue_id = self.request.method.queue
 
         # set queue bindings (can binds many keys to one queue)
@@ -43,8 +43,11 @@ class receiver():
 
     def __del__(self):
         # close connection: after destruction
-        self.channel.queue_delete(self.request_queue_id)
-        self.connection.close()
+        try:
+            self.channel.queue_delete(self.request_queue_id)
+            self.connection.close()
+        except:
+            pass
 
     def extract_payload(self, p):
         for part in p.walk():
@@ -134,7 +137,7 @@ class receiver():
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
     def run(self):
-        # wait for request
+        # wait for request, and do not allow other consumers on current queue
         self.channel.basic_consume(self.consume_request,
                 exclusive=True,
                 queue=self.request_queue_id)
@@ -158,5 +161,8 @@ if __name__ == "__main__":
             C.run()
         else:
             print("./recvmq.py [exchange_id] [routing_key] [user] [password]")
+    except pika.exceptions.ProbableAuthenticationError as e:
+        print(e)
     except Exception as e:
+        print(e)
         print("./recvmq.py [exchange_id] [routing_key] [user] [password]")

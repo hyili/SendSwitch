@@ -29,8 +29,21 @@ class sender():
                 exchange_type="direct",
                 durable=True)
 
+        # declare request queue if there is no current queue exists
+        # because an exchange won't store any messages, but a queue
+        for routing_key in self.routing_keys:
+            request = self.channel.queue_declare(queue=routing_key)
+            request_queue_id = request.method.queue
+
+            # set queue bindings (can binds many keys to one queue)
+            self.channel.queue_bind(exchange=self.exchange_id,
+                    queue=request_queue_id,
+                    routing_key=routing_key
+            )
+
         # declare response queue
-        # callback_queue: a queue for receiver use
+        # callback_queue: a queue for receiver to write, and can only read
+        # using current connection
         self.response = self.channel.queue_declare(exclusive=True)
         self.response_queue_id = self.response.method.queue
 
@@ -39,9 +52,12 @@ class sender():
 
     def __del__(self):
         # close connection: after destruction
-#        self.channel.exchange_delete(exchange=self.exchange_id)
-        self.channel.queue_delete(queue=self.response_queue_id)
-        self.connection.close()
+        try:
+#           self.channel.exchange_delete(exchange=self.exchange_id)
+            self.channel.queue_delete(queue=self.response_queue_id)
+            self.connection.close()
+        except:
+            pass
 
     def consume_response(self, ch, method, properties, body):
         if self.corr_id == properties.correlation_id:
@@ -81,7 +97,7 @@ class sender():
             if not self.silent_mode:
                 print(" [*] Sent %s to %s" % (msg, routing_key))
 
-        # set consume_response to consume the response, and use only once
+        # set consume_response to consume the response, and use only once(FCFS)
         self.channel.basic_consume(self.consume_response,
                 no_ack=True,
                 exclusive=True,

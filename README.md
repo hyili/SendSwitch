@@ -65,3 +65,4 @@ used for performance testing
 - [ ] Client Example
 - [ ] Performance Comparison Between RabbitMQ, Kafka, ActiveMQ, and Kestrel
 	- https://dzone.com/articles/exploring-message-brokers
+- [ ] Request Queue And Response Queue Management
