@@ -3,20 +3,63 @@ A content filter function using MessageQueue with RPC implementation.
 
 ## contentfilter.py
 content filter in postfix
-#### usage
+#### sample usage
 in master.cf
 ```
-smtp      inet  n       -       n       -       -       smtpd
-	-o content_filter=filter:dummy
+scan	unix	-		-		n		-		10		smtp
+	-o smtp_send_xforward_command=yes
+	-o disable_mime_output_conversion=yes
+	-o smtp_generic_maps=
 
-filter		unix	-	n	n	-	1	pipe
-	flags=Rq user=whoyouare null_sender=
-	argv=/path/to/contentfilter.py -f ${sender} -- ${recipient}
+localhost:10026	inet	n		-		n		-		10		smtpd
+	-o content_filter=
+	-o receive_override_options=no_unknown_recipient_checks,no_header_body_checks,no_milters
+	-o smtpd_helo_restrictions=
+	-o smtpd_client_restrictions=
+	-o smtpd_sender_restrictions=
+	-o smtpd_relay_restrictions=
+	-o smtpd_recipient_restrictions=permit_mynetworks,reject
+	-o mynetworks=127.0.0.0/8
+	-o smtpd_authorized_xforward_hosts=127.0.0.0/8
+```
+
+## install.py
+Setup for global MessageQueue setting
+#### sample usage
+```
+./install.py
+```
+#### note
+please change "{localhost}" to your server ip
+
+## per_user_install.py
+Setup for per-user MessageQueue setting
+#### sample usage
+```
+./per_user_install.py [username]
+```
+
+## server.py
+Module for handling SMTP/SMTPD/MessageQueue message interaction
+#### sample usage
+```
+./server.py
+```
+#### note
+This module will default listen 8025 port for SMTPD input email
+And will default send email back to postfix on port 10026
+please change "{localhost}" to your server ip
+
+## returnmq.py
+Handling return result from client
+#### sample usage
+```
+./returnmq.py
 ```
 
 ## sendmq.py
-send message to recvmq.py and wait for result
-#### usage
+Module which send message to recvmq.py
+#### sample usage
 ```
 ./sendmq.py [exchange_id] [routing_key] ...
 ```
@@ -24,45 +67,62 @@ send message to recvmq.py and wait for result
 please change "{localhost}" to your server ip
 
 ## recvmq.py
-recv message from sendmq.py and then send back the result
-#### usage
+Module which recv message from sendmq.py and then send back the result
+#### sample usage
 ```
-./recvmq.py [exchange_id] [routing_key]
+./recvmq.py [exchange_id] [routing_key] [virtual_host] [username] [password]
 ```
 #### note
 please change "{localhost}" to your server ip
+"exchange_id" & "routing_key" are both DEPRECATED
+
+
+## example_server.py
+Example SMTP server using Python
+
+## example_client.py
+Example SMTP client for sending email using Python
 
 ## apiserver.py
-token server implementation using flask
-#### usage
+Token server implementation using flask
+#### sample usage
 ```
 ./apiserver.py
 ```
 #### note
-please change "{localhost}" to your server ip
+Please change "{localhost}" to your server ip
+Used with set_key.sh and get_key.sh
 
 ## send_loop.py
-used for performance testing
+Used for performance testing
 
 ## TODO
 - [x] Content Filter In Postfix
+	- [x] Basic Content Filter Implementation
+	- [x] Advanced Content Filter Implementation
+		- [x] SMTP support
+		- [x] SMTPD support
+- [ ] Request Queue And Response Queue Management
+	- [x] Non-blocking Send
+	- [x] Non-blocking Receive
+	- [ ] User-Space Queue Setup
+	- [ ] Dead Letter Exchange (DLX)
 - [x] Server with Send Function
 - [x] Client with Recv Function
 - [x] RPC Architecture
-- [x] Non-blocking Send
 - [x] Exchange & Routing
 - [x] Client Email Parser Example
-- [ ] System Architecture
+- [x] System Architecture
 - [ ] Security
-	- [ ] Authentication
-	- [ ] MQ Permission Setup
-	- [ ] API For Getting Routing Key
-- [ ] Expiration
-	- [ ] Queue Expiration
-	- [x] Message Expiration
-	- [ ] Testing
+	- [x] Authentication
+		- [x] LDAP backend
+	- [x] Authorization
+		- [x] MQ Permission Setup
+	- [x] API For Getting Routing Key
+		- [x] Demo version
+		- [x] DEPRECATED
 - [ ] Debug & Logging
-- [ ] Client Example
+- [x] Client Example
+	- [x] recvmq.py sample usage
 - [ ] Performance Comparison Between RabbitMQ, Kafka, ActiveMQ, and Kestrel
 	- https://dzone.com/articles/exploring-message-brokers
-- [ ] Request Queue And Response Queue Management

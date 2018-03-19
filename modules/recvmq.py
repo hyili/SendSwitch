@@ -9,7 +9,7 @@ import requests
 from email.header import decode_header
 
 class receiver():
-    def __init__(self, exchange_id="random", routing_key="random", host="localhost", silent_mode=False, user="user", password="pass"):
+    def __init__(self, exchange_id="random", routing_key="random", host="localhost", silent_mode=False, vhost="/", user="guest", password="guest"):
         # credentials
         self.credentials = pika.PlainCredentials(user, password)
 
@@ -22,29 +22,18 @@ class receiver():
         self.routing_key = routing_key
 
         # connection to rabbitmq & channel declaration
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, virtual_host="/", credentials=self.credentials))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, virtual_host=vhost, credentials=self.credentials))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
 
-        # declare exchange
-        self.channel.exchange_declare(exchange=self.exchange_id,
-                exchange_type="direct",
-                durable=True)
-
         # declare request queue where request comes in
-        self.request = self.channel.queue_declare(queue=self.routing_key)
+        self.request = self.channel.queue_declare(queue="mail",
+                                                  passive=True)
         self.request_queue_id = self.request.method.queue
-
-        # set queue bindings (can binds many keys to one queue)
-        self.channel.queue_bind(exchange=self.exchange_id,
-                queue=self.request_queue_id,
-                routing_key=self.routing_key
-        )
 
     def __del__(self):
         # close connection: after destruction
         try:
-            self.channel.queue_delete(self.request_queue_id)
             self.connection.close()
         except:
             pass
@@ -120,7 +109,7 @@ class receiver():
             "data": msg
         }
 
-        # send response back WITHOUT exchanger
+        # send response backto default exchanger
         channel.basic_publish(exchange='',
                 routing_key=properties.reply_to,
                 properties=pika.BasicProperties(
@@ -139,7 +128,6 @@ class receiver():
     def run(self):
         # wait for request, and do not allow other consumers on current queue
         self.channel.basic_consume(self.consume_request,
-                exclusive=True,
                 queue=self.request_queue_id)
 
         # dispatch consume_request using start_consuming(), iteratively
@@ -151,18 +139,18 @@ class receiver():
 if __name__ == "__main__":
     args = sys.argv
     try:
-        if len(args) == 3:
+        if len(args) == 4:
             r = requests.get("http://{localhost}:60666/routingkey")
             data = r.json()
-            C = receiver(exchange_id="mail", routing_key=data["routing_key"], host="hostname", user=args[1], password=args[2])
+            C = receiver(exchange_id="mail", routing_key=data["routing_key"], host="hostname", vhost=args[1], user=args[2], password=args[3])
             C.run()
-        elif len(args) == 5:
-            C = receiver(exchange_id=args[1], routing_key=args[2], user=args[3], password=args[4])
+        elif len(args) == 6:
+            C = receiver(exchange_id=args[1], routing_key=args[2], vhost=args[3], user=args[4], password=args[5])
             C.run()
         else:
-            print("./recvmq.py [exchange_id] [routing_key] [user] [password]")
+            print("./recvmq.py [exchange_id] [routing_key] [vhost] [user] [password]")
     except pika.exceptions.ProbableAuthenticationError as e:
         print(e)
     except Exception as e:
         print(e)
-        print("./recvmq.py [exchange_id] [routing_key] [user] [password]")
+        print("./recvmq.py [exchange_id] [routing_key] [vhost] [user] [password]")
