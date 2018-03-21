@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 # http://aiosmtpd.readthedocs.io/en/latest/aiosmtpd/docs/smtp.html
+# https://github.com/aio-libs/aiosmtpd
 
 import sys
 import asyncio
 import time
+import random
 from aiosmtpd.controller import Controller
 from aiosmtpd.handlers import Proxy
+from aiosmtpd.smtp import Envelope
 
 sys.path.append("../modules/")
 import sendmq
@@ -14,6 +17,11 @@ import returnmq
 class Handler(Proxy):
     def __init__(self, remote_hostname, remote_port):
         super(self.__class__, self).__init__(remote_hostname, remote_port)
+
+        self.handler = returnmq.result_handler()
+
+        # TODO:
+        self.registered_user = []
 
     # http://aiosmtpd.readthedocs.io/en/latest/aiosmtpd/docs/handlers.html#handler-hooks
     # HELO Command
@@ -55,33 +63,46 @@ class Handler(Proxy):
 
         # TODO: Save to temporary directory
 
-        # TODO: message queue handler here
-        sender = sendmq.sender(exchange_id="mail",
-            routing_keys=["mail.{0}".format(rcpt) for rcpt in envelope.rcpt_tos],
-            silent_mode=True)
+        for rcpt in envelope.rcpt_tos:
+            # Continue to send or not
+            status = True
 
-        # TODO: corr_id mapping
-        sender.sendMsg(envelope.content.decode("utf-8", errors="replace"))
+            # Per-user envelope
+            new_envelope = Envelope()
+            new_envelope = envelope
+            new_envelope.rcpt_tos = [rcpt]
+            print(rcpt)
 
-        # TODO: Waiting for return
-        handler = returnmq.result_handler()
-        while True:
-            result = handler.get(sender.corr_id)
-            if result:
+            if rcpt in self.registered_user:
+                sender = sendmq.sender(exchange_id="mail",
+                    routing_keys=["mail.{0}".format(rcpt)],
+                    silent_mode=True)
+
+                sender.sendMsg(envelope.content.decode("utf-8", errors="replace"))
+
+                while True:
+                    # TODO: status changing
+                    result = self.handler.get(sender.corr_id)
+                    if result:
+                        print(result)
+                        break
+                    else:
+                        print("sleeping ...")
+                    await asyncio.sleep(random.random())
+
+            if status:
+                # Then, wait for Proxy to send messages back
+                result =  await super(self.__class__, self).handle_DATA(server,
+                    session,
+                    new_envelope)
+
+                # Output the result
                 print(result)
-                break
             else:
-                print("sleeping ...")
-            time.sleep(5)
+                # TODO: Reason
+                print("550 {0}".format(result))
 
-        # Then, wait for Proxy to send messages back
-        result =  await super(self.__class__, self).handle_DATA(server,
-            session,
-            envelope)
-
-        # Output the result
-        #return "250 Message accepted for delivery"
-        return result
+        return "250 OK"
 
     # STARTTLS Command
     # handle_STARTTLS(server, session, envelope)
@@ -103,6 +124,6 @@ SMTPDController.start()
 # Do nothing here
 # TODO: signal handler
 while True:
-    time.sleep(5000)
+    time.sleep(random.random())
 
 SMTPDController.stop()

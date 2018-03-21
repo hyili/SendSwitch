@@ -38,7 +38,10 @@ class result_handler():
     def checkResult(self):
         # dispatch consume_response using process_data_events() until data acquired
         # http://pika.readthedocs.io/en/0.10.0/modules/adapters/blocking.html
-        self.connection.process_data_events()
+        try:
+            self.connection.process_data_events()
+        except Exception as e:
+            print(e)
 
     # Non-Blocking
     def getResult(self, corr_id):

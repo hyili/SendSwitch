@@ -8,7 +8,7 @@ import json
 import requests
 
 class install():
-    def __init__(self, username="test", host="localhost", silent_mode=False):
+    def __init__(self, username="guest", host="localhost", silent_mode=False):
         # rabbitmq host
         self.host = host
         self.silent_mode = silent_mode
