@@ -32,10 +32,15 @@ class result_handler():
 
         self.connection.process_data_events()
 
-    def consume_response(self, ch, method, properties, body):
-        # TODO: Message Controller
+    # TODO: destructor
+
+    def Debug(self, msg):
         if not self.silent_mode:
-            print(" [*] Receive %s: %s" % (properties.correlation_id, body.decode("utf-8")))
+            print(" [*] {0}".format(msg))
+
+    def consume_response(self, ch, method, properties, body):
+        if not self.silent_mode:
+            self.Debug("Receive {0}: {1}".format(properties.correlation_id, body.decode("utf-8")))
             self.result.update({properties.correlation_id: body.decode("utf-8")})
 
     # Non-Blocking
@@ -52,9 +57,9 @@ class result_handler():
             try:
                 self.connection.process_data_events()
             except Exception as e:
-                print(" [*] {0}".format(e))
+                self.Debug(e)
         except Exception as e:
-            print(" [*] {0}".format(e))
+            self.Debug(e)
 
     # Non-Blocking
     def getResult(self, corr_id):

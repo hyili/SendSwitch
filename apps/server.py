@@ -32,15 +32,24 @@ class Handler(Proxy):
             self.envelope = copy.deepcopy(envelope)
             self.envelope.rcpt_tos = [rcpt]
 
-    def __init__(self, remote_hostname, remote_port):
+    def __init__(self, remote_hostname, remote_port, silent_mode=False):
         super(self.__class__, self).__init__(remote_hostname, remote_port)
 
+        self.remote_hostname = remote_hostname
+        self.remote_port = remote_port
+        self.silent_mode = silent_mode
         self.handler = returnmq.result_handler()
+
+        self.statistic = 0
 
         # TODO:
         self.registered_user = []
         self.MQ_Bundles = {}
         self.SMTP_Bundles = {}
+
+    def Debug(self, msg):
+        if not self.silent_mode:
+            print(" [*] {0}".format(msg))
 
     # http://aiosmtpd.readthedocs.io/en/latest/aiosmtpd/docs/handlers.html#handler-hooks
     # HELO Command
@@ -74,11 +83,11 @@ class Handler(Proxy):
     # DATA Command
     async def handle_DATA(self, server, session, envelope):
         # Print out messages first
-        print("Message from {0}".format(envelope.mail_from))
-        print("Message from {0}".format(envelope.rcpt_tos))
-        print("Message data:\n")
-        print(envelope.content.decode("utf8", errors="replace"))
-        print("End of message")
+        self.Debug("Message from {0}".format(envelope.mail_from))
+        self.Debug("Message from {0}".format(envelope.rcpt_tos))
+        self.Debug("Message data:\n")
+        self.Debug(envelope.content.decode("utf8", errors="replace"))
+        self.Debug("End of message")
 
         # TODO: Save to temporary directory
 
@@ -119,7 +128,7 @@ class Handler(Proxy):
                 SMTP_Bundles_list = list(self.SMTP_Bundles.keys())
                 for corr_id in SMTP_Bundles_list:
                     result = json.loads(self.handler.get(corr_id))
-                    print(result)
+                    self.Debug(result)
 
                     # TODO: Handle the return results
                     if result["data"] == "OK":
@@ -128,29 +137,39 @@ class Handler(Proxy):
                             self.SMTP_Bundles[corr_id].session,
                             self.SMTP_Bundles[corr_id].envelope
                         )
-                        print(SMTP_result)
+                        self.Debug(SMTP_result)
                     else:
                         # Do nothing
                         pass
 
                     # Pop finished job from SMTP_Bundles
-                    print("Pop {0}".format(corr_id))
+                    self.Debug("Pop {0}".format(corr_id))
                     self.SMTP_Bundles.pop(corr_id, None)
-                    print("Pop {0} Done".format(corr_id))
+                    self.statistic += 1
+                    self.Debug("Pop {0} Done".format(corr_id))
             else:
-                print(" [*] Sleeping")
+                self.Debug("Sleeping")
                 await asyncio.sleep(random.random()*10)
+
+    async def some_statistic(self):
+        while True:
+            start = self.statistic
+            await asyncio.sleep(1)
+            end = self.statistic
+            print("{0} msg/sec".format(end-start))
+
 
 # http://aiosmtpd.readthedocs.io/en/latest/aiosmtpd/docs/controller.html?highlight=8025#controller-api
 # Asynchronous smtpd server, await many functions to handle the request at the
 # same time
 
 # SMTP method handler
-handler = Handler(remote_hostname="localhost", remote_port=10026)
+handler = Handler(remote_hostname="localhost", remote_port=10026, silent_mode=True)
 
 # Return message handler (From MessageQueue)
 loop = asyncio.new_event_loop()
 loop.create_task(handler.handle_returnmq())
+loop.create_task(handler.some_statistic())
 
 # SMTP server setup
 SMTPDController = Controller(

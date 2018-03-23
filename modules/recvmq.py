@@ -38,11 +38,15 @@ class receiver():
         except:
             pass
 
+    def Debug(self, msg):
+        if not self.silent_mode:
+            print(" [*] {0}".format(msg))
+
     def extract_payload(self, p):
         for part in p.walk():
             if part.get_content_maintype() == "text":
                 charset = part.get_content_charset()
-                print(" [-] %s" % part.get_payload(decode=True).decode(charset))
+                self.Debug(part.get_payload(decode=True).decode(charset))
 #            if part.get_content_type() == "multipart/alternative":
 #                for alter_part in reversed(part.get_payload()):
 #                    self.extract_payload(alter_part)
@@ -50,7 +54,7 @@ class receiver():
     def email_handler(self, msg):
         p = email.message_from_string(msg)
 
-        print(" [*] header:")
+        self.Debug("header:")
         for pp_key in set(p.keys()):
             pp_value = p.get_all(pp_key, None)
             # TODO: concat 2 header.from into 1
@@ -60,28 +64,27 @@ class receiver():
                     content = ""
                     for (_content, _charset) in pair:
                         if _charset:
-                            content = "%s %s" % (content, _content.decode(_charset))
+                            content = "{0} {1}".format(content, _content.decode(_charset))
                         else:
                             if isinstance(_content, (bytes, bytearray)):
-                                content = "%s %s" % (content, _content.decode())
+                                content = "{0} {1}".format(content, _content.decode())
                             else:
-                                content = "%s %s" % (content, _content)
-                    print(" [-] %s:%s" % (pp_key, content))
+                                content = "{0} {1}".format(content, _content)
+                    self.Debug("{0}:{1}".format(pp_key, content))
             else:
                 pair = decode_header(pp_value)
                 content = ""
                 for (_content, _charset) in pair:
                     if _charset:
-                        content = "%s %s" % (content, _content.decode(_charset))
+                        content = "{0} {1}".format(content, _content.decode(_charset))
                     else:
                         if isinstance(_content, (bytes, bytearray)):
-                            content = "%s %s" % (content, _content.decode())
+                            content = "{0} {1}".format(content, _content.decode())
                         else:
-                            content = "%s %s" % (content, _content)
-                print(" [-] %s:%s" % (pp_key, content))
-        print(" [*] payload:")
+                            content = "{0} {1}".format(content, _content)
+                self.Debug("{0}:{1}".format(pp_key, content))
+        self.Debug("payload:")
         self.extract_payload(p)
-
 
     def consume_request(self, channel, method, properties, body):
         # json format load
@@ -89,13 +92,13 @@ class receiver():
 
         # TODO: Message Controller
         if not self.silent_mode:
-            print(" [*] Receive %s" % data)
+            self.Debug("Receive {0}".format(data))
 
         # email handler
         try:
             self.email_handler(data["data"])
         except Exception as e:
-            print(e)
+            self.Debug(e)
 
         # resoponse message
         msg = "OK"
@@ -121,7 +124,7 @@ class receiver():
         )
         # TODO: Message Controller
         if not self.silent_mode:
-            print(" [*] Sent %s to %s" % (msg, properties.reply_to))
+            self.Debug("Sent {0} to {1}".format(msg, properties.reply_to))
 
         channel.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -132,7 +135,7 @@ class receiver():
 
         # dispatch consume_request using start_consuming(), iteratively
         # http://pika.readthedocs.io/en/0.10.0/modules/adapters/blocking.html
-        print(" [*] Waiting for messages. To exit press CTRL+C")
+        self.Debug("Waiting for messages. To exit press CTRL+C")
         self.channel.start_consuming()
 
 # start receiver

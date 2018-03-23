@@ -44,6 +44,10 @@ class sender():
         except:
             pass
 
+    def Debug(self, msg):
+        if not self.silent_mode:
+            print(" [*] {0}".format(msg))
+
     def _sendMsg(self, timestamp, expire, corr_id, data):
         for routing_key in self.routing_keys:
             self.channel.basic_publish(exchange=self.exchange_id,
@@ -59,7 +63,7 @@ class sender():
 
             # TODO: Message Controller
             if not self.silent_mode:
-                print(" [*] Sent %s: %s to %s" % (corr_id, msg, routing_key))
+                print("Sent {0}: {1} to {2}" % (corr_id, msg, routing_key))
 
 
     # Non-Blocking
@@ -89,9 +93,9 @@ class sender():
             try:
                 self._sendMsg(timestamp, expire, corr_id, data)
             except Exception as e:
-                print(" [*] {0}".format(e))
+                self.Debug(e)
         except Exception as e:
-            print(" [*] {0}".format(e))
+            self.Debug(e)
 
         return corr_id
 

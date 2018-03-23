@@ -14,9 +14,9 @@ class per_user_install():
             r = requests.put("http://localhost:15672/api/vhosts/{0}".format(vhost),
             headers={"Content-Type": "application/json"},
             auth=requests.auth.HTTPBasicAuth(user, password))
-            print(r)
+            self.Debug(r)
         except Exception as e:
-            print(e)
+            self.Debug(e)
             quit()
 
         # Giving full control to user guest
@@ -27,9 +27,9 @@ class per_user_install():
                 "write": ".*",
                 "read": ".*"
             }, auth=requests.auth.HTTPBasicAuth(user, password))
-            print(r)
+            self.Debug(r)
         except Exception as e:
-            print(e)
+            self.Debug(e)
             quit()
 
         # credentials
@@ -71,9 +71,9 @@ class per_user_install():
                     "dest-queue": "mail"
                 }
             }, auth=requests.auth.HTTPBasicAuth(user, password))
-            print(r)
+            self.Debug(r)
         except Exception as e:
-            print(e)
+            self.Debug(e)
             quit()
 
         try:
@@ -93,9 +93,9 @@ class per_user_install():
                     "dest-queue": "return"
                 }
             }, auth=requests.auth.HTTPBasicAuth(user, password))
-            print(r)
+            self.Debug(r)
         except Exception as e:
-            print(e)
+            self.Debug(e)
             quit()
 
     def __del__(self):
@@ -104,6 +104,10 @@ class per_user_install():
             self.connection.close()
         except:
             pass
+
+    def Debug(self, msg):
+        if not self.silent_mode:
+            print(" [*] {0}".format(msg))
 
 if __name__ == "__main__":
     args = sys.argv
