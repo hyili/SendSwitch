@@ -13,6 +13,10 @@ class result_handler():
         self.host = host
         self.silent_mode = silent_mode
 
+        # exchange_id & routing_keys
+        self.exchange_id = exchange_id
+        self.routing_keys = routing_keys
+
         # result
         self.result = dict()
 
@@ -31,8 +35,8 @@ class result_handler():
     def consume_response(self, ch, method, properties, body):
         # TODO: Message Controller
         if not self.silent_mode:
-            print(" [*] Receive %s: %s" % (properties.correlation_id, body))
-            self.result.update({properties.correlation_id: body})
+            print(" [*] Receive %s: %s" % (properties.correlation_id, body.decode("utf-8")))
+            self.result.update({properties.correlation_id: body.decode("utf-8")})
 
     # Non-Blocking
     def checkResult(self):
@@ -40,14 +44,23 @@ class result_handler():
         # http://pika.readthedocs.io/en/0.10.0/modules/adapters/blocking.html
         try:
             self.connection.process_data_events()
+        except pika.exceptions.ConnectionClosed:
+            self.__init__(exchange_id=self.exchange_id,
+                routing_keys=self.routing_keys,
+                host=self.host,
+                silent_mode=self.silent_mode)
+            try:
+                self.connection.process_data_events()
+            except Exception as e:
+                print(" [*] {0}".format(e))
         except Exception as e:
-            print(e)
+            print(" [*] {0}".format(e))
 
     # Non-Blocking
     def getResult(self, corr_id):
         try:
             ret_val = self.result[corr_id]
-            del self.result[corr_id]
+            self.result.pop(corr_id, None)
             return ret_val
         except:
             return None

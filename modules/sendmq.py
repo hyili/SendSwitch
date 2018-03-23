@@ -13,9 +13,6 @@ class sender():
         self.host = host
         self.silent_mode = silent_mode
 
-        # corr_id: set for checking if response is for me
-        self.corr_id = str(uuid.uuid4())
-
         # exchange_id & routing_keys
         self.exchange_id = exchange_id
         self.routing_keys = routing_keys
@@ -47,10 +44,32 @@ class sender():
         except:
             pass
 
+    def _sendMsg(self, timestamp, expire, corr_id, data):
+        for routing_key in self.routing_keys:
+            self.channel.basic_publish(exchange=self.exchange_id,
+                routing_key=routing_key,
+                properties=pika.BasicProperties(
+                        reply_to=self.response_queue_id,
+                        correlation_id=corr_id,
+                        timestamp=int(timestamp),
+                        expiration=str(expire)
+                ),
+                body=json.dumps(data)
+            )
+
+            # TODO: Message Controller
+            if not self.silent_mode:
+                print(" [*] Sent %s: %s to %s" % (corr_id, msg, routing_key))
+
+
     # Non-Blocking
     def sendMsg(self, msg):
         # queue publish, send out msg
         timestamp = time.time()
+
+        # corr_id: message correlation id
+        corr_id = str(uuid.uuid4())
+
         # message will not actually be removed when times up
         # it will be removed until message head up the limit
         expire = 600 * 1000
@@ -59,20 +78,22 @@ class sender():
             "expire": expire,
             "data": msg
         }
-        for routing_key in self.routing_keys:
-            self.channel.basic_publish(exchange=self.exchange_id,
-                    routing_key=routing_key,
-                    properties=pika.BasicProperties(
-                            reply_to=self.response_queue_id,
-                            correlation_id=self.corr_id,
-                            timestamp=int(timestamp),
-                            expiration=str(expire)
-                    ),
-                    body=json.dumps(data)
-            )
-            # TODO: Message Controller
-            if not self.silent_mode:
-                print(" [*] Sent %s: %s to %s" % (self.corr_id, msg, routing_key))
+
+        try:
+            self._sendMsg(timestamp, expire, corr_id, data)
+        except pika.exceptions.ConnectionClosed:
+            self.__init__(exchange_id=self.exchange_id,
+                routing_keys=self.routing_keys,
+                host=self.host,
+                silent_mode=self.silent_mode)
+            try:
+                self._sendMsg(timestamp, expire, corr_id, data)
+            except Exception as e:
+                print(" [*] {0}".format(e))
+        except Exception as e:
+            print(" [*] {0}".format(e))
+
+        return corr_id
 
 # start sender
 if __name__ == "__main__":
