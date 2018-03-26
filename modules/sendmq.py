@@ -25,7 +25,12 @@ class sender():
         # callback_queue: a queue for receiver to write, and can only read
         # using current connection
         self.response = self.channel.queue_declare(queue="return",
-                                                   durable=True)
+            durable=True,
+            arguments={
+                "x-dead-letter-exchange": "return",
+                "x-dead-letter-routing-key": "return"
+            }
+        )
         self.response_queue_id = self.response.method.queue
 
         # set queue bindings (can binds many keys to one queue)
@@ -80,7 +85,8 @@ class sender():
         data = {
             "created": int(timestamp),
             "expire": expire,
-            "data": msg
+            "data": msg,
+            "result": "pending"
         }
 
         try:
@@ -113,6 +119,8 @@ if __name__ == "__main__":
             S.sendMsg("example_message")
         else:
             print("./sendmq.py [exchange_id] [routing_key] ...")
+    except KeyboardInterrupt:
+        print(" [*] Signal Catched. Quit.")
     except Exception as e:
         print(e)
         print("./sendmq.py [exchange_id] [routing_key] ...")

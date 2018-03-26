@@ -127,11 +127,22 @@ class Handler(Proxy):
                 # Fetching result
                 SMTP_Bundles_list = list(self.SMTP_Bundles.keys())
                 for corr_id in SMTP_Bundles_list:
-                    result = json.loads(self.handler.get(corr_id))
-                    self.Debug(result)
+                    _result = self.handler.get(corr_id)
+                    if _result:
+                        result = json.loads(_result)
+                        self.Debug(result)
+                    else:
+                        continue
 
                     # TODO: Handle the return results
-                    if result["data"] == "OK":
+                    if result["result"] == "OK":
+                        SMTP_result = await super(self.__class__, self).handle_DATA(
+                            self.SMTP_Bundles[corr_id].server,
+                            self.SMTP_Bundles[corr_id].session,
+                            self.SMTP_Bundles[corr_id].envelope
+                        )
+                        self.Debug(SMTP_result)
+                    elif result["result"] == "pending":
                         SMTP_result = await super(self.__class__, self).handle_DATA(
                             self.SMTP_Bundles[corr_id].server,
                             self.SMTP_Bundles[corr_id].session,
@@ -156,7 +167,7 @@ class Handler(Proxy):
             start = self.statistic
             await asyncio.sleep(1)
             end = self.statistic
-            print("{0} msg/sec".format(end-start))
+#            print("{0} msg/sec".format(end-start))
 
 
 # http://aiosmtpd.readthedocs.io/en/latest/aiosmtpd/docs/controller.html?highlight=8025#controller-api

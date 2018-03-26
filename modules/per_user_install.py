@@ -9,6 +9,10 @@ import requests
 
 class per_user_install():
     def __init__(self, host="localhost", silent_mode=False, vhost="/", user="guest", password="guest"):
+        # rabbitmq host
+        self.host = host
+        self.silent_mode = silent_mode
+
         # TODO: Create new vhost
         try:
             r = requests.put("http://localhost:15672/api/vhosts/{0}".format(vhost),
@@ -35,22 +39,39 @@ class per_user_install():
         # credentials
         self.credentials = pika.PlainCredentials(user, password)
 
-        # rabbitmq host
-        self.host = host
-        self.silent_mode = silent_mode
-
         # connection to rabbitmq & channel declaration
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, virtual_host=vhost, credentials=self.credentials))
         self.channel = self.connection.channel()
 
+        # DLX
+        self.channel.exchange_declare(exchange="return",
+            exchange_type="direct",
+            passive=False,
+            durable=True)
+
         # declare queue if there is no current queue exists
         self.channel.queue_declare(queue="mail",
-                                   passive=False,
-                                   durable=True)
+            passive=False,
+            durable=True,
+            arguments={
+                "x-dead-letter-exchange": "return",
+                "x-dead-letter-routing-key": "return"
+            }
+        )
 
         self.channel.queue_declare(queue="return",
-                                   passive=False,
-                                   durable=True)
+            passive=False,
+            durable=True,
+            arguments={
+                "x-dead-letter-exchange": "return",
+                "x-dead-letter-routing-key": "return"
+            }
+        )
+
+        self.channel.queue_bind(exchange="return",
+            queue="return",
+            routing_key="return"
+        )
 
         # TODO: install shovel
         try:
@@ -110,8 +131,11 @@ class per_user_install():
             print(" [*] {0}".format(msg))
 
 if __name__ == "__main__":
-    args = sys.argv
-    if len(args) == 2:
-        install = per_user_install(vhost=args[1])
-    else:
-        print("./per_user_install.py [username]")
+    try:
+        args = sys.argv
+        if len(args) == 2:
+            install = per_user_install(vhost=args[1])
+        else:
+            print("./per_user_install.py [username]")
+    except KeyboardInterrupt:
+        print(" [*] Signal Catched. Quit.")

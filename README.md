@@ -6,6 +6,22 @@ content filter in postfix
 #### sample usage
 in master.cf
 ```
+smtp      inet  n       -       n       -       -       smtpd
+	-o content_filter=filter:dummy
+
+filter		unix	-	n	n	-	1	pipe
+	flags=Rq user=hyili null_sender=
+	argv=/home/hyili/Postfix_Spammer_Filter/apps/contentfilter.py -f ${sender} -- ${recipient}
+```
+
+## server.py
+Module for handling SMTP/SMTPD/MessageQueue message interaction
+#### sample usage
+```
+./server.py
+```
+in master.cf
+```
 scan	unix	-		-		n		-		10		smtp
 	-o smtp_send_xforward_command=yes
 	-o disable_mime_output_conversion=yes
@@ -22,6 +38,11 @@ localhost:10026	inet	n		-		n		-		10		smtpd
 	-o mynetworks=127.0.0.0/8
 	-o smtpd_authorized_xforward_hosts=127.0.0.0/8
 ```
+#### note
+This module will default listen 8025 port for SMTPD input email
+And will default send email back to postfix on port 10026
+please change "{localhost}" to your server ip
+
 
 ## install.py
 Setup for global MessageQueue setting
@@ -32,6 +53,7 @@ Setup for global MessageQueue setting
 #### note
 please change "{localhost}" to your server ip
 
+
 ## per_user_install.py
 Setup for per-user MessageQueue setting
 #### sample usage
@@ -39,16 +61,6 @@ Setup for per-user MessageQueue setting
 ./per_user_install.py [username]
 ```
 
-## server.py
-Module for handling SMTP/SMTPD/MessageQueue message interaction
-#### sample usage
-```
-./server.py
-```
-#### note
-This module will default listen 8025 port for SMTPD input email
-And will default send email back to postfix on port 10026
-please change "{localhost}" to your server ip
 
 ## returnmq.py
 Handling return result from client
@@ -56,6 +68,7 @@ Handling return result from client
 ```
 ./returnmq.py
 ```
+
 
 ## sendmq.py
 Module which send message to recvmq.py
@@ -65,6 +78,7 @@ Module which send message to recvmq.py
 ```
 #### note
 please change "{localhost}" to your server ip
+
 
 ## recvmq.py
 Module which recv message from sendmq.py and then send back the result
@@ -80,8 +94,10 @@ please change "{localhost}" to your server ip
 ## example_server.py
 Example SMTP server using Python
 
+
 ## example_client.py
 Example SMTP client for sending email using Python
+
 
 ## apiserver.py
 Token server implementation using flask
@@ -93,8 +109,10 @@ Token server implementation using flask
 Please change "{localhost}" to your server ip
 Used with set_key.sh and get_key.sh
 
+
 ## send_loop.py
 Used for performance testing
+
 
 ## TODO
 - [x] Content Filter In Postfix
@@ -102,18 +120,18 @@ Used for performance testing
 	- [x] Advanced Content Filter Implementation
 		- [x] SMTP support
 		- [x] SMTPD support
-- [ ] Request Queue And Response Queue Management
+- [x] Request Queue And Response Queue Management
 	- [x] Non-blocking Send
 	- [x] Non-blocking Receive
-	- [ ] User-Space Queue Setup
-	- [ ] Dead Letter Exchange (DLX)
+	- [x] User-Space Queue Setup
+	- [x] Dead Letter Exchange (DLX)
 - [x] Server with Send Function
 - [x] Client with Recv Function
 - [x] RPC Architecture
 - [x] Exchange & Routing
 - [x] Client Email Parser Example
 - [x] System Architecture
-- [ ] Security
+- [x] Security
 	- [x] Authentication
 		- [x] LDAP backend
 	- [x] Authorization
@@ -122,6 +140,8 @@ Used for performance testing
 		- [x] Demo version
 		- [x] DEPRECATED
 - [ ] Debug & Logging
+	- [x] Debug
+	- [ ] Logging
 - [x] Client Example
 	- [x] recvmq.py sample usage
 - [ ] Performance Comparison Between RabbitMQ, Kafka, ActiveMQ, and Kestrel

@@ -28,7 +28,12 @@ class receiver():
 
         # declare request queue where request comes in
         self.request = self.channel.queue_declare(queue="mail",
-                                                  passive=True)
+            passive=True,
+            arguments={
+                "x-dead-letter-exchange": "return",
+                "x-dead-letter-routing-key": "return"
+            }
+        )
         self.request_queue_id = self.request.method.queue
 
     def __del__(self):
@@ -109,7 +114,8 @@ class receiver():
         response = {
             "created": int(timestamp),
             "expire": expire,
-            "data": msg
+            "data": data["data"],
+            "result": msg
         }
 
         # send response backto default exchanger
@@ -154,6 +160,8 @@ if __name__ == "__main__":
             print("./recvmq.py [exchange_id] [routing_key] [vhost] [user] [password]")
     except pika.exceptions.ProbableAuthenticationError as e:
         print(e)
+    except KeyboardInterrupt:
+        print(" [*] Signal Catched. Quit.")
     except Exception as e:
         print(e)
         print("./recvmq.py [exchange_id] [routing_key] [vhost] [user] [password]")
