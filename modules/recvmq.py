@@ -48,10 +48,14 @@ class receiver():
             print(" [*] {0}".format(msg))
 
     def extract_payload(self, p):
+
         for part in p.walk():
             if part.get_content_maintype() == "text":
                 charset = part.get_content_charset()
-                self.Debug(part.get_payload(decode=True).decode(charset))
+                if charset is not None:
+                    self.Debug(part.get_payload(decode=True).decode(charset, errors="replace"))
+                else:
+                    self.Debug(part.get_payload(decode=True).decode(errors="replace"))
 #            if part.get_content_type() == "multipart/alternative":
 #                for alter_part in reversed(part.get_payload()):
 #                    self.extract_payload(alter_part)
@@ -62,7 +66,7 @@ class receiver():
         self.Debug("header:")
         for pp_key in set(p.keys()):
             pp_value = p.get_all(pp_key, None)
-            # TODO: concat 2 header.from into 1
+            # concat 2 header.from into 1
             if isinstance(pp_value, list):
                 for element in pp_value:
                     pair = decode_header(element)
@@ -92,34 +96,30 @@ class receiver():
         self.extract_payload(p)
 
     def consume_request(self, channel, method, properties, body):
-        # json format load
-        data = json.loads(body)
+        try:
+            # json format load
+            data = json.loads(body)
 
-        # TODO: Message Controller
-        if not self.silent_mode:
             self.Debug("Receive {0}".format(data))
 
-        # email handler
-        try:
+            # email handler
             self.email_handler(data["data"])
-        except Exception as e:
-            self.Debug(e)
 
-        # resoponse message
-        msg = "OK"
-        timestamp = time.time()
-        # message will not actually be removed when times up
-        # it will be removed until message head up the limit
-        expire = 600 * 1000
-        response = {
-            "created": int(timestamp),
-            "expire": expire,
-            "data": data["data"],
-            "result": msg
-        }
+            # resoponse message
+            msg = "OK"
+            timestamp = time.time()
+            # message will not actually be removed when times up
+            # it will be removed until message head up the limit
+            expire = 600 * 1000
+            response = {
+                "created": int(timestamp),
+                "expire": expire,
+                "data": data["data"],
+                "result": msg
+            }
 
-        # send response backto default exchanger
-        channel.basic_publish(exchange='',
+            # send response backto default exchanger
+            channel.basic_publish(exchange='',
                 routing_key=properties.reply_to,
                 properties=pika.BasicProperties(
                     correlation_id=properties.correlation_id,
@@ -127,12 +127,15 @@ class receiver():
                     expiration=str(expire),
                 ),
                 body=json.dumps(response)
-        )
-        # TODO: Message Controller
-        if not self.silent_mode:
-            self.Debug("Sent {0} to {1}".format(msg, properties.reply_to))
+            )
+            # Message Controller
+            if not self.silent_mode:
+                self.Debug("Sent {0} to {1}".format(msg, properties.reply_to))
 
-        channel.basic_ack(delivery_tag=method.delivery_tag)
+            channel.basic_ack(delivery_tag=method.delivery_tag)
+        except Exception as e:
+            channel.basic_nack(delivery_tag=method.delivery_tag)
+            self.Debug(e)
 
     def run(self):
         # wait for request, and do not allow other consumers on current queue

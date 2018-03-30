@@ -13,7 +13,7 @@ class per_user_install():
         self.host = host
         self.silent_mode = silent_mode
 
-        # TODO: Create new vhost
+        # Create new vhost
         try:
             r = requests.put("http://localhost:15672/api/vhosts/{0}".format(vhost),
             headers={"Content-Type": "application/json"},
@@ -73,7 +73,7 @@ class per_user_install():
             routing_key="return"
         )
 
-        # TODO: install shovel
+        # install shovel
         try:
             r = requests.put("http://localhost:15672/api/parameters/shovel/%2F/{0}-mail".format(vhost),
             json={

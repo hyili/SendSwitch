@@ -142,6 +142,7 @@ Used for performance testing
 - [ ] Debug & Logging
 	- [x] Debug
 	- [ ] Logging
+- [x] Statistical Module
 - [x] Client Example
 	- [x] recvmq.py sample usage
 - [ ] Performance Comparison Between RabbitMQ, Kafka, ActiveMQ, and Kestrel

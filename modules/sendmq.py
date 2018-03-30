@@ -55,6 +55,7 @@ class sender():
 
     def _sendMsg(self, timestamp, expire, corr_id, data):
         for routing_key in self.routing_keys:
+            msg = json.dumps(data)
             self.channel.basic_publish(exchange=self.exchange_id,
                 routing_key=routing_key,
                 properties=pika.BasicProperties(
@@ -63,21 +64,21 @@ class sender():
                         timestamp=int(timestamp),
                         expiration=str(expire)
                 ),
-                body=json.dumps(data)
+                body=msg
             )
 
-            # TODO: Message Controller
+            # Message Controller
             if not self.silent_mode:
-                print("Sent {0}: {1} to {2}" % (corr_id, msg, routing_key))
-
+                self.Debug("Sent {0}: {1}".format(corr_id, msg))
 
     # Non-Blocking
-    def sendMsg(self, msg):
+    def sendMsg(self, msg, corr_id=None):
         # queue publish, send out msg
         timestamp = time.time()
 
         # corr_id: message correlation id
-        corr_id = str(uuid.uuid4())
+        if corr_id is None:
+            corr_id = str(uuid.uuid4())
 
         # message will not actually be removed when times up
         # it will be removed until message head up the limit
@@ -92,11 +93,11 @@ class sender():
         try:
             self._sendMsg(timestamp, expire, corr_id, data)
         except pika.exceptions.ConnectionClosed:
-            self.__init__(exchange_id=self.exchange_id,
-                routing_keys=self.routing_keys,
-                host=self.host,
-                silent_mode=self.silent_mode)
             try:
+                self.__init__(exchange_id=self.exchange_id,
+                    routing_keys=self.routing_keys,
+                    host=self.host,
+                silent_mode=self.silent_mode)
                 self._sendMsg(timestamp, expire, corr_id, data)
             except Exception as e:
                 self.Debug(e)
