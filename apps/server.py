@@ -109,8 +109,48 @@ class Handler(Proxy):
                         data["envelope_mailfrom"],
                         data["envelope_rcptto"]
                     ))
+
+                    # Resend message
+                    self.send(bundle)
                 except Exception as e:
                     print(e)
+
+    def send(self, bundle):
+        # Check if the recepient is in registered_user list
+        if bundle.rcpt in self.registered_user:
+            self._send(
+                rcpt=bundle.rcpt,
+                bundle=bundle,
+                exchange_id="mail",
+                routing_key="mail.{0}".format(bundle.rcpt),
+            )
+        else:
+            self._send(
+                rcpt="others",
+                bundle=bundle,
+                exchange_id="",
+                routing_key="return",
+            )
+
+
+    def _send(self, rcpt, bundle, exchange_id, routing_key):
+        # Check if the per user connection to MQ is established
+        if rcpt not in self.MQ_Bundles:
+            sender = sendmq.sender(exchange_id=exchange_id,
+                routing_keys=[routing_key],
+                silent_mode=True)
+            self.MQ_Bundles[rcpt] = self.MQ_Bundle(rcpt, sender)
+        sender = self.MQ_Bundles[rcpt].sender
+
+        # Send out message to MQ with corr_id
+        sender.sendMsg(bundle.envelope.content.decode("utf-8", errors="replace"),
+            corr_id=bundle.corr_id)
+
+        self.Debug("Send {0}: from: {1} to: {2}".format(
+            bundle.corr_id,
+            bundle.envelope.mail_from,
+            bundle.rcpt
+        ))
 
     # http://aiosmtpd.readthedocs.io/en/latest/aiosmtpd/docs/handlers.html#handler-hooks
     # HELO Command
@@ -157,29 +197,8 @@ class Handler(Proxy):
                 # Doing backup here to prepare for error recovery
                 self.backup(bundle)
 
-                if rcpt in self.registered_user:
-                    if rcpt not in self.MQ_Bundles:
-                        sender = sendmq.sender(exchange_id="mail",
-                            routing_keys=["mail.{0}".format(rcpt)],
-                            silent_mode=True)
-                        self.MQ_Bundles[rcpt] = self.MQ_Bundle(rcpt, sender)
-                    sender = self.MQ_Bundles[rcpt].sender
-                else:
-                    if "others" not in self.MQ_Bundles:
-                        sender = sendmq.sender(exchange_id="",
-                            routing_keys=["return"],
-                            silent_mode=True)
-                        self.MQ_Bundles["others"] = self.MQ_Bundle(rcpt, sender)
-                    sender = self.MQ_Bundles["others"].sender
-
-                sender.sendMsg(envelope.content.decode("utf-8", errors="replace"),
-                    corr_id=corr_id)
-
-                self.Debug("Send {0}: from: {1} to: {2}".format(
-                    corr_id,
-                    envelope.mail_from,
-                    rcpt
-                ))
+                # Send message to MQ
+                self.send(bundle)
         except Exception as e:
             return "471 {0}".format(e)
 
