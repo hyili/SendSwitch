@@ -21,18 +21,37 @@ class install():
         self.channel.exchange_declare(exchange="random",
             exchange_type="direct",
             passive=False,
-            durable=True)
+            durable=True,
+            arguments={
+                "alternate-exchange": "dropped"
+            }
+        )
 
         self.channel.exchange_declare(exchange="mail",
             exchange_type="direct",
             passive=False,
-            durable=True)
+            durable=True,
+            arguments={
+                "alternate-exchange": "dropped"
+            }
+        )
 
         # DLX
         self.channel.exchange_declare(exchange="return",
             exchange_type="direct",
             passive=False,
-            durable=True)
+            durable=True,
+            arguments={
+                "alternate-exchange": "dropped"
+            }
+        )
+
+        # AE
+        self.channel.exchange_declare(exchange="dropped",
+            exchange_type="topic",
+            passive=False,
+            durable=True
+        )
 
         # declare queue if there is no current queue exists
         self.channel.queue_declare(queue=username,
@@ -62,6 +81,11 @@ class install():
         self.channel.queue_bind(exchange="return",
             queue="return",
             routing_key="return"
+        )
+
+        self.channel.queue_bind(exchange="dropped",
+            queue="return",
+            routing_key="#"
         )
 
     def __del__(self):
