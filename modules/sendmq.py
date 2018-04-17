@@ -8,7 +8,7 @@ import json
 import requests
 
 class sender():
-    def __init__(self, exchange_id="random", routing_keys=["random"], host="localhost", silent_mode=False):
+    def __init__(self, exchange_id="random", routing_keys=["random"], user_profile=None, host="localhost", silent_mode=False):
         # rabbitmq host
         self.host = host
         self.silent_mode = silent_mode
@@ -16,6 +16,9 @@ class sender():
         # exchange_id & routing_keys
         self.exchange_id = exchange_id
         self.routing_keys = routing_keys
+
+        # user profile
+        self.user_profile = user_profile
 
         # connection to rabbitmq & channel declaration
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
@@ -82,7 +85,7 @@ class sender():
 
         # message will not actually be removed when times up
         # it will be removed until message head up the limit
-        expire = 600 * 1000
+        expire = (600 if self.user_profile is None else self.user_profile.timeout) * 1000
         data = {
             "created": int(timestamp),
             "expire": expire,

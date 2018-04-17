@@ -7,9 +7,14 @@ from flask import request
 from flask import render_template
 import auth
 
+import install
+import per_user_install
+
 def ManagementUI(config):
     app = Flask(__name__)
     registered_users = config.kwargs["registered_users"]
+    registered_servers = config.kwargs["registered_servers"]
+    host_domain = config.kwargs["domain"]
 
     # Pages
     @app.route("/", methods=["Get"])
@@ -23,7 +28,7 @@ def ManagementUI(config):
         passwd = request.form["passwd"]
         (account, domain) = email.split("@")
 
-        if domain == "{localhost}":
+        if domain == host_domain:
             if auth.ldap_authenticate(account, passwd):
                 return render_template("manage.html",
                     account=account, domain=domain), 200
@@ -33,7 +38,7 @@ def ManagementUI(config):
             return "Are you sure that domain ({0}) is correct?".format(domain)
 
     # APIs
-    # TODO: add button
+    # TODO: install to rabbitmq?
     @app.route("/add", methods=["Post"])
     def add_user():
         try:
@@ -55,7 +60,7 @@ def ManagementUI(config):
             registered_users.add(account=email)
         return ""
 
-    # TODO: add button
+    # TODO: deinstall from rabbitmq?
     @app.route("/del", methods=["Post"])
     def del_user():
         try:
@@ -70,10 +75,33 @@ def ManagementUI(config):
         except Exception as e:
             return str(e)
 
-    # TODO: add button
+    @app.route("/route", methods=["Post"])
+    def route():
+        account = request.form["account"]
+        domain = request.form["domain"]
+        email = "{0}@{1}".format(account, domain)
+        local = request.form["local"]
+        remote = request.form["remote"]
+
+        user = registered_users.get(email)
+        if user:
+            try:
+                if registered_servers.get(local) and registered_servers.get(remote):
+                    if local not in user.settings:
+                        user.settings[local] = remote
+                    elif user.settings[local] != remote:
+                        user.settings[local] = remote
+                    else:
+                        return "Unchanged"
+                return "OK"
+            except Exception as e:
+                return "No such server node"
+        else:
+            return "Who are you"
+
     @app.route("/show", methods=["Post"])
     def show_user():
         return str(registered_users.getAll())
 
     # TODO: session SSO
-    app.run(host="{localhost}", port=60666)
+    app.run(host=host_domain, port=60666)

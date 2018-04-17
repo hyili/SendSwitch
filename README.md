@@ -1,7 +1,7 @@
 # Postfix_Spammer_Filter
 A content filter function using MessageQueue with RPC implementation.
 
-## contentfilter.py
+## contentfilter.py (Deprecated)
 content filter in postfix
 #### sample usage
 in master.cf
@@ -13,6 +13,16 @@ filter		unix	-	n	n	-	1	pipe
 	flags=Rq user=hyili null_sender=
 	argv=/home/hyili/Postfix_Spammer_Filter/apps/contentfilter.py -f ${sender} -- ${recipient}
 ```
+
+## apiserver.py (Deprecated)
+Token server implementation using flask
+#### sample usage
+```
+./apiserver.py
+```
+#### note
+Please change "{localhost}" to your server ip
+Used with set_key.sh and get_key.sh
 
 ## server.py
 Module for handling SMTP/SMTPD/MessageQueue message interaction
@@ -38,10 +48,14 @@ localhost:10026	inet	n		-		n		-		10		smtpd
 	-o mynetworks=127.0.0.0/8
 	-o smtpd_authorized_xforward_hosts=127.0.0.0/8
 ```
+in main.cf
+```
+content_filter = scan:127.0.0.1:8025
+```
 #### note
 This module will default listen 8025 port for SMTPD input email
 And will default send email back to postfix on port 10026
-please change "{localhost}" to your server ip
+please change "hyili.idv.tw" to your server ip or domain
 
 
 ## install.py
@@ -51,7 +65,7 @@ Setup for global MessageQueue setting
 ./install.py
 ```
 #### note
-please change "{localhost}" to your server ip
+please change "hyili.idv.tw" to your server ip
 
 
 ## per_user_install.py
@@ -61,25 +75,6 @@ Setup for per-user MessageQueue setting
 ./per_user_install.py [username]
 ```
 
-
-## returnmq.py
-Handling return result from client
-#### sample usage
-```
-./returnmq.py
-```
-
-
-## sendmq.py
-Module which send message to recvmq.py
-#### sample usage
-```
-./sendmq.py [exchange_id] [routing_key] ...
-```
-#### note
-please change "{localhost}" to your server ip
-
-
 ## recvmq.py
 Module which recv message from sendmq.py and then send back the result
 #### sample usage
@@ -88,27 +83,12 @@ Module which recv message from sendmq.py and then send back the result
 ```
 #### note
 please change "{localhost}" to your server ip
-"exchange_id" & "routing_key" are both DEPRECATED
-
 
 ## example_server.py
 Example SMTP server using Python
 
-
 ## example_client.py
 Example SMTP client for sending email using Python
-
-
-## apiserver.py
-Token server implementation using flask
-#### sample usage
-```
-./apiserver.py
-```
-#### note
-Please change "{localhost}" to your server ip
-Used with set_key.sh and get_key.sh
-
 
 ## send_loop.py
 Used for performance testing
@@ -125,6 +105,7 @@ Used for performance testing
 	- [x] Non-blocking Receive
 	- [x] User-Space Queue Setup
 	- [x] Dead Letter Exchange (DLX)
+	- [x] Alternate Exchange (AE)
 - [x] Server with Send Function
 - [x] Client with Recv Function
 - [x] RPC Architecture
@@ -138,12 +119,28 @@ Used for performance testing
 		- [x] MQ Permission Setup
 	- [x] API For Getting Routing Key
 		- [x] Demo version
-		- [x] DEPRECATED
 - [ ] Debug & Logging
 	- [x] Debug
 	- [ ] Logging
 - [x] Statistical Module
 - [x] Client Example
 	- [x] recvmq.py sample usage
-- [ ] Performance Comparison Between RabbitMQ, Kafka, ActiveMQ, and Kestrel
-	- https://dzone.com/articles/exploring-message-brokers
+- [ ] Fault Tolerance
+	- [x] Backup
+	- [x] Recover
+	- [ ] Failed to Send Email
+- [x] Router
+	- [x] Server Profile
+	- [x] User Profile
+- [ ] Management UI
+	- [ ] Login page
+		- [ ] Session
+		- [ ] SSO
+		- [ ] https
+	- [ ] Management page
+		- [ ] Proper UI
+		- [ ] Control API
+			- [x] Activate Button
+			- [x] Deactivate Button
+			- [ ] Routing Button
+			- [ ] Logged out Button

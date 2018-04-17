@@ -45,18 +45,18 @@ class MQHandler(Proxy):
             self.envelope.rcpt_tos = [rcpt]
             self.status = 0
 
-    def __init__(self, config, remote_hostname, remote_port, silent_mode=False):
-        super(self.__class__, self).__init__(remote_hostname, remote_port)
+    def __init__(self, config, local, remote, silent_mode=False):
+        super(self.__class__, self).__init__(remote.hostname, remote.port)
 
         self.config = config
-        self.remote_hostname = remote_hostname
-        self.remote_port = remote_port
+        self.local = local
+        self.remote = remote
         self.silent_mode = silent_mode
-        self.handler = returnmq.result_handler(silent_mode=True)
         self.directory = "/tmp/PSF"
 
         self.statistic = 0
 
+        self.registered_servers = config.kwargs["registered_servers"]
         self.registered_users = config.kwargs["registered_users"]
         self.MQ_Bundles = {}
         self.SMTP_Bundles = {}
@@ -122,15 +122,23 @@ class MQHandler(Proxy):
                 except Exception as e:
                     print(e)
 
-    def send(self, bundle):
-        # Check if the recepient is in registered_users list
-        if self.registered_users.get(bundle.rcpt):
-            self._send(
-                rcpt=bundle.rcpt,
-                bundle=bundle,
-                exchange_id="mail",
-                routing_key="mail.{0}".format(bundle.rcpt),
-            )
+    def send(self, bundle, direct=False):
+        if not direct:
+            # Check if the recepient is in registered_users list
+            if self.registered_users.get(bundle.rcpt):
+                self._send(
+                    rcpt=bundle.rcpt,
+                    bundle=bundle,
+                    exchange_id="mail",
+                    routing_key="mail.{0}".format(bundle.rcpt),
+                )
+            else:
+                self._send(
+                    rcpt="others",
+                    bundle=bundle,
+                    exchange_id="",
+                    routing_key="return",
+                )
         else:
             self._send(
                 rcpt="others",
@@ -145,6 +153,7 @@ class MQHandler(Proxy):
         if rcpt not in self.MQ_Bundles:
             sender = sendmq.sender(exchange_id=exchange_id,
                 routing_keys=[routing_key],
+                user_profile=self.registered_users.get(rcpt),
                 silent_mode=True)
             self.MQ_Bundles[rcpt] = self.MQ_Bundle(rcpt, sender)
         sender = self.MQ_Bundles[rcpt].sender
@@ -159,7 +168,25 @@ class MQHandler(Proxy):
             bundle.rcpt
         ))
 
-    async def send_email(self, session, envelope, remote_hostname, remote_port):
+    async def send_email(self, rcpt, session, envelope):
+        # get next hostname and port according to user's settings
+        remote_server = None
+        remote_hostname = None
+        remote_port = None
+        user = self.registered_users.get(rcpt)
+
+        try:
+            remote_server = user.settings[self.local.id]
+            remote_hostname = self.registered_servers.get(remote_server).hostname
+            remote_port = self.registered_servers.get(remote_server).port
+        except Exception as e:
+            remote_server = self.remote.id
+            remote_hostname = self.remote.hostname
+            remote_port = self.remote.port
+
+        self.Debug("Next hop id:{0} host:{1} port:{2}".format(remote_server,
+            remote_hostname, remote_port))
+
         # check if content is not str
         if isinstance(envelope.content, str):
             content = envelope.original_content
@@ -201,10 +228,8 @@ class MQHandler(Proxy):
             finally:
                 s.quit()
         except smtplib.SMTPRecipientsRefused as e:
-            log.info('got SMTPRecipientsRefused')
             refused = e.recipients
         except (OSError, smtplib.SMTPException) as e:
-            log.exception('got %s', e.__class__)
             # All recipients were refused.  If the exception had an associated
             # error code, use it.  Otherwise, fake it with a non-triggering
             # exception code.
@@ -236,7 +261,7 @@ class MQHandler(Proxy):
 
     # RCPT TO Command
     async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
-        if not address.endswith("@{localhost}"):
+        if not address.endswith(self.config.kwargs["domain"]):
             return "550 not relaying to that domain."
         envelope.rcpt_tos.append(address)
         return "250 OK"
@@ -274,6 +299,7 @@ class MQHandler(Proxy):
     # handle_exception(error)
 
     async def returnmq_mod(self):
+        self.handler = returnmq.result_handler(silent_mode=True)
         while True:
             if len(self.SMTP_Bundles) > 0:
                 # Fetching result
@@ -287,20 +313,19 @@ class MQHandler(Proxy):
                         continue
 
                     # TODO: Handle the return results
+                    # TODO: If something happened during send?
                     if result["result"] == "OK":
                         SMTP_result = await self.send_email(
+                            self.SMTP_Bundles[corr_id].rcpt,
                             self.SMTP_Bundles[corr_id].session,
                             self.SMTP_Bundles[corr_id].envelope,
-                            self._hostname,
-                            self._port
                         )
                         self.Debug(SMTP_result)
                     elif result["result"] == "pending":
                         SMTP_result = await self.send_email(
+                            self.SMTP_Bundles[corr_id].rcpt,
                             self.SMTP_Bundles[corr_id].session,
                             self.SMTP_Bundles[corr_id].envelope,
-                            self._hostname,
-                            self._port
                         )
                         self.Debug(SMTP_result)
                     else:
@@ -328,27 +353,34 @@ class MQHandler(Proxy):
             start = self.statistic
             await asyncio.sleep(1)
             end = self.statistic
-#            print("{0} msg/sec".format(end-start))
+            #print("{0} msg/sec".format(end-start))
 
     async def timeout_mod(self):
         while True:
+            # run every 10 secs
             await asyncio.sleep(10)
             timestamp = int(time.time())
-            for corr_id in self.SMTP_Bundles:
-                if timestamp - self.SMTP_Bundles[corr_id].timestamp > 1200:
-                    if "others" not in self.MQ_Bundles:
-                        sender = sendmq.sender(
-                            exchange_id="",
-                            routing_keys=["return"],
-                            silent_mode=True
-                        )
-                        self.MQ_Bundles["others"] = self.MQ_Bundle(
-                            self.SMTP_Bundles[corr_id].rcpt,
-                            sender
-                        )
-                    sender = self.MQ_Bundles["others"].sender
-                    sender.sendMsg(
-                        self.SMTP_Bundles[corr_id].envelope.content.decode("utf-8", errors="replace"),
-                        corr_id=corr_id
-                    )
 
+            # run through every monitored emails
+            for corr_id in self.SMTP_Bundles:
+                bundle = self.SMTP_Bundles[corr_id]
+                create_timestamp = bundle.timestamp
+                rcpt = bundle.rcpt
+                user_profile = self.registered_users.get(rcpt)
+
+                if timestamp - create_timestamp > user_profile.timeout * 2:
+                    self.send(bundle, direct=True)
+
+
+# TODO: routing
+class ProxyHandler(Proxy):
+    def __init__(self, config, local, remote, silent_mode=False):
+        super(self.__class__, self).__init__(remote.hostname, remote.port)
+
+        self.config = config
+        self.local = local
+        self.remote = remote
+        self.silent_mode = silent_mode
+
+        self.registered_servers = config.kwargs["registered_servers"]
+        self.registered_users = config.kwargs["registered_users"]

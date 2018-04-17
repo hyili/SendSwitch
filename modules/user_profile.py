@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
 class User():
-    def __init__(self, email, setting=None):
+    def __init__(self, email, settings=dict()):
         self.email = email
         self.account, self.domain = email.split("@")
-        self.setting = setting
+        self.timeout = 600
+        self.settings = settings
 
 
 class Users():
-    def __init__(self):
+    def __init__(self, settings=None):
         self.registered_user_profile = dict()
+        self.default_user_settings = settings
 
     def add(self, email=None, user=None):
         if user:

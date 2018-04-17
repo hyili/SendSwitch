@@ -75,7 +75,7 @@ class install():
         # set queue bindings (can binds many keys to one queue)
         self.channel.queue_bind(exchange="mail",
             queue=username,
-            routing_key="mail.{0}@{localhost}".format(username)
+            routing_key="mail.{0}@hyili.idv.tw".format(username)
         )
 
         self.channel.queue_bind(exchange="return",

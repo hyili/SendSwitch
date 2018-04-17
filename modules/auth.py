@@ -4,7 +4,7 @@
 from ldap3 import Server, Connection, ALL, NTLM
 
 def ldap_authenticate(account, passwd):
-    dn = "uid={0}".format(account)
+    dn = "uid={0},dc=hyili,dc=idv,dc=tw".format(account)
     ldap_server = "localhost"
 
     try:
