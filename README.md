@@ -32,6 +32,9 @@ Module for handling SMTP/SMTPD/MessageQueue message interaction
 ```
 in master.cf
 ```
+smtp      inet  n       -       n       -       -       smtpd
+	-o content_filter=scan:127.0.0.1:8025
+
 scan	unix	-		-		n		-		10		smtp
 	-o smtp_send_xforward_command=yes
 	-o disable_mime_output_conversion=yes
@@ -47,10 +50,6 @@ localhost:10026	inet	n		-		n		-		10		smtpd
 	-o smtpd_recipient_restrictions=permit_mynetworks,reject
 	-o mynetworks=127.0.0.0/8
 	-o smtpd_authorized_xforward_hosts=127.0.0.0/8
-```
-in main.cf
-```
-content_filter = scan:127.0.0.1:8025
 ```
 #### note
 This module will default listen 8025 port for SMTPD input email

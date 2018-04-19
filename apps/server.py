@@ -80,7 +80,8 @@ users = user_profile.Users(settings=default_settings)
 # Config setup
 config = Config(registered_servers=servers,
     registered_users=users,
-    domain="hyili.idv.tw")
+    email_domain="hyili.idv.tw",
+    host_domain="hyili.idv.tw")
 
 # Controller setup
 SMTPD_MQController = Create_MQController(config=config,

@@ -5,8 +5,10 @@ from flask import request
 from flask import Flask, url_for
 from flask import request
 from flask import render_template
-import auth
+from flask import send_from_directory
+import os
 
+import auth
 import install
 import per_user_install
 
@@ -14,7 +16,8 @@ def ManagementUI(config):
     app = Flask(__name__)
     registered_users = config.kwargs["registered_users"]
     registered_servers = config.kwargs["registered_servers"]
-    host_domain = config.kwargs["domain"]
+    email_domain = config.kwargs["email_domain"]
+    host_domain = config.kwargs["host_domain"]
 
     # Pages
     @app.route("/", methods=["Get"])
@@ -28,7 +31,7 @@ def ManagementUI(config):
         passwd = request.form["passwd"]
         (account, domain) = email.split("@")
 
-        if domain == host_domain:
+        if domain == email_domain:
             if auth.ldap_authenticate(account, passwd):
                 return render_template("manage.html",
                     account=account, domain=domain), 200

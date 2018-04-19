@@ -261,7 +261,7 @@ class MQHandler(Proxy):
 
     # RCPT TO Command
     async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
-        if not address.endswith(self.config.kwargs["domain"]):
+        if not address.endswith("@{0}".format(self.config.kwargs["email_domain"])):
             return "550 not relaying to that domain."
         envelope.rcpt_tos.append(address)
         return "250 OK"
