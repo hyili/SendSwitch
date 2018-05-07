@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Monitoring Page</title>
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <script type="text/javascript" src="//cdn.bootcss.com/jquery/3.1.1/jquery.min.js"></script>
+    <script type="text/javascript" src="//cdn.bootcss.com/socket.io/1.5.1/socket.io.min.js"></script>
+    <script type="text/javascript" charset="utf-8">
+    $(document).ready(function() {
+        var socket = io.connect('http://' + document.domain + ':' + location.port + '/monitor');
+
+        socket.on("connect", function() {
+            socket.emit("connect_event", {data: "connected!"});
+            socket.emit("client_event", {data: "Ready for chat!"});
+        })
+
+        socket.on("server_response", function(msg) {
+            $("#log").append("<br>" + $("<div/>").text("Received #" + ": " + msg.data).html());
+        });
+
+        socket.on("server_statistic", function(msg) {
+            console.log(msg);
+            $("#board").html(msg.data + " emails total");
+            for (i = 0; i < msg.log.length; i++) {
+                $("#log").append("<br>" + $("<div/>").text("Received #" + ": " + msg.log[i]).html());
+            }
+        });
+
+        $("#emit").submit(function(event) {
+            socket.emit("client_event", {data: $("#emit_data").val()});
+            event.preventDefault();
+        });
+    });
+    
+    </script>
+</head>
+
+<body>
+    <h2>Server Throughput</h2>
+    <div id="board"></div>
+
+    <h2>Echo Test & Log</h2>
+    <form id="emit" method="POST" action="#">
+        <input type="text" name="emit_data" id="emit_data" placeholder="Message">
+        <input type="submit" value="Echo">
+    </form>
+    <div id="log"></div>
+</body>
+
+
+</html>

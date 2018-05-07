@@ -10,6 +10,7 @@ from aiosmtpd.handlers import Proxy
 sys.path.append("../modules/")
 from handler import MQHandler, ProxyHandler
 from config_loader import Config
+from output import Output
 import web
 import user_profile
 import server_profile
@@ -31,9 +32,6 @@ def Create_MQController(config, local, remote, silent_mode=False,
     loop = asyncio.new_event_loop()
     if returnmq_mod:
         loop.create_task(handler.returnmq_mod())
-
-    if statistic_mod:
-        loop.create_task(handler.statistic_mod())
 
     if timeout_mod:
         loop.create_task(handler.timeout_mod())
@@ -77,11 +75,15 @@ default_settings = {
 # User setup with default route settings
 users = user_profile.Users(settings=default_settings)
 
+# Output setup
+output = Output()
+
 # Config setup
 config = Config(registered_servers=servers,
     registered_users=users,
     email_domain="hyili.idv.tw",
-    host_domain="hyili.idv.tw")
+    host_domain="hyili.idv.tw",
+    output=output)
 
 # Controller setup
 SMTPD_MQController = Create_MQController(config=config,

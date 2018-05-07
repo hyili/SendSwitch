@@ -38,8 +38,8 @@ class sender():
 
         # set queue bindings (can binds many keys to one queue)
         self.channel.queue_bind(exchange="return",
-                queue=self.response_queue_id,
-                routing_key=self.response_queue_id
+            queue=self.response_queue_id,
+            routing_key=self.response_queue_id
         )
 
         # result: storing result

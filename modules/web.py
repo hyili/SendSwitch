@@ -5,8 +5,10 @@ from flask import request
 from flask import Flask, url_for
 from flask import request
 from flask import render_template
-from flask import send_from_directory
+from flask_socketio import SocketIO, emit
+
 import os
+import threading
 
 import auth
 import install
@@ -14,10 +16,31 @@ import per_user_install
 
 def ManagementUI(config):
     app = Flask(__name__)
+    app.config["SECRET_KEY"] = "secret!"
+    socketio = SocketIO(app)
+
     registered_users = config.kwargs["registered_users"]
     registered_servers = config.kwargs["registered_servers"]
     email_domain = config.kwargs["email_domain"]
     host_domain = config.kwargs["host_domain"]
+
+    # Background thread
+    # https://github.com/miguelgrinberg/Flask-SocketIO/blob/master/example/app.py
+    def background_thread():
+        while True:
+            server = registered_servers.get("Message-Queue-node")
+            data = server.statistic
+            log = list()
+
+            while len(server.log) > 0:
+                log.append(server.log.pop(0))
+
+            socketio.emit("server_statistic", {
+                "data": data,
+                "log": log
+            }, namespace="/monitor")
+
+            socketio.sleep(1)
 
     # Pages
     @app.route("/", methods=["Get"])
@@ -106,5 +129,18 @@ def ManagementUI(config):
     def show_user():
         return str(registered_users.getAll())
 
+    @app.route("/monitor")
+    def monitor():
+        return render_template("monitor.html")
+
+    @socketio.on("client_event", namespace="/monitor")
+    def client_msg(msg):
+        emit("server_response", {"data": msg["data"]}, namespace="/monitor")
+
+    @socketio.on("connect_event", namespace="/monitor")
+    def connected_msg(msg):
+        emit("server_response", {"data": msg["data"]}, namespace="/monitor")
+
     # TODO: session SSO
-    app.run(host=host_domain, port=60666)
+    socketio.start_background_task(target=background_thread)
+    socketio.run(app=app, host="0.0.0.0", port=60666)

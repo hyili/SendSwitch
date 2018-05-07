@@ -48,19 +48,23 @@ class MQHandler(Proxy):
     def __init__(self, config, local, remote, silent_mode=False):
         super(self.__class__, self).__init__(remote.hostname, remote.port)
 
+        # global config
         self.config = config
-        self.local = local
-        self.remote = remote
-        self.silent_mode = silent_mode
-        self.directory = "/tmp/PSF"
-
-        self.statistic = 0
-
         self.registered_servers = config.kwargs["registered_servers"]
         self.registered_users = config.kwargs["registered_users"]
+
+        # local server config
+        self.local = local
+
+        # remote server config
+        self.remote = remote
+
+        self.silent_mode = silent_mode
+        self.directory = "/tmp/PSF"
         self.MQ_Bundles = {}
         self.SMTP_Bundles = {}
 
+        # check if temp mail directory exists
         if not os.path.isdir(self.directory):
             os.mkdir(self.directory, 0o755)
         else:
@@ -69,6 +73,7 @@ class MQHandler(Proxy):
     def Debug(self, msg):
         if not self.silent_mode:
             print(" [*] {0}".format(msg))
+            self.local.log.append(" [*] {0}".format(msg))
 
     def finish(self, bundle):
         try:
@@ -340,20 +345,13 @@ class MQHandler(Proxy):
                         bundle.rcpt
                     ))
                     self.finish(bundle)
-                    self.statistic += 1
+                    self.local.statistic += 1
 
                 # Clear all result that does not match anything
                 # TODO: recheck, maybe some problem
                 self.handler.clear()
 
             await asyncio.sleep(random.random())
-
-    async def statistic_mod(self):
-        while True:
-            start = self.statistic
-            await asyncio.sleep(1)
-            end = self.statistic
-            #print("{0} msg/sec".format(end-start))
 
     async def timeout_mod(self):
         while True:

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <title>Management Page</title>
-	<link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/css/bootstrap.min.css">
@@ -68,23 +68,25 @@
 
 <div class="container">
     <h2>Hi, {{ account }}</h2>
-    <button type="button" class="btn btn-outline-primary">Primary</button>
-    <button type="button" class="btn btn-outline-secondary">Secondary</button>
-    <button type="button" class="btn btn-outline-success">Success</button>
-    <button type="button" class="btn btn-outline-info">Info</button>
-    <button type="button" class="btn btn-outline-warning">Warning</button>
-    <button type="button" class="btn btn-outline-danger">Danger</button>
-    <button type="button" class="btn btn-outline-dark">Dark</button>
-    <button type="button" class="btn btn-outline-light text-dark">Light</button>
-    <br><br><br><br>
-    <button onclick="activate_jQuery()" class="btn btn-outline-success">Click me to activate</button>
-    <button onclick="deactivate_jQuery()" class="btn btn-outline-danger">Click me to deactivate</button>
-    <button onclick="show_jQuery()" class="btn btn-outline-dark">Click me to show current registered user</button>
-	<br><br><br><br>
-    <button onclick="connect_jQuery('Message-Queue-node', 'Postfix')" class="btn btn-outline-primary">Click me to connect Message-Queue-node to Postfix</button>
-    <button onclick="connect_jQuery('Message-Queue-node', 'Amavisd-new-node')" class="btn btn-outline-primary">Click me to connect Message-Queue-node to Amavisd-new-node</button>
-    <button onclick="connect_jQuery('Amavisd-new-node', 'Postfix')" class="btn btn-outline-primary">Click me to connect Amavisd-new-node to Postfix</button>
-    <br><br><br><br>
-    <button onclick="logout_jQuery()" type="button" class="btn btn-outline-warning">Click me to logout</button>
+    <div>
+        <button type="button" class="btn btn-outline-primary">Primary</button>
+        <button type="button" class="btn btn-outline-secondary">Secondary</button>
+        <button type="button" class="btn btn-outline-success">Success</button>
+        <button type="button" class="btn btn-outline-info">Info</button>
+        <button type="button" class="btn btn-outline-warning">Warning</button>
+        <button type="button" class="btn btn-outline-danger">Danger</button>
+        <button type="button" class="btn btn-outline-dark">Dark</button>
+        <button type="button" class="btn btn-outline-light text-dark">Light</button>
+        <br><br><br><br>
+        <button onclick="activate_jQuery()" class="btn btn-outline-success">Click me to activate</button>
+        <button onclick="deactivate_jQuery()" class="btn btn-outline-danger">Click me to deactivate</button>
+        <button onclick="show_jQuery()" class="btn btn-outline-dark">Click me to show current registered user</button>
+        <br><br><br><br>
+        <button onclick="connect_jQuery('Message-Queue-node', 'Postfix')" class="btn btn-outline-primary">Click me to connect Message-Queue-node to Postfix</button>
+        <button onclick="connect_jQuery('Message-Queue-node', 'Amavisd-new-node')" class="btn btn-outline-primary">Click me to connect Message-Queue-node to Amavisd-new-node</button>
+        <button onclick="connect_jQuery('Amavisd-new-node', 'Postfix')" class="btn btn-outline-primary">Click me to connect Amavisd-new-node to Postfix</button>
+        <br><br><br><br>
+        <button onclick="logout_jQuery()" type="button" class="btn btn-outline-warning">Click me to logout</button>
+    </div>
 </div>
 
