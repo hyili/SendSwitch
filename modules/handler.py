@@ -341,6 +341,29 @@ class MQHandler(Proxy):
     # EXCEPTION
     # handle_exception(error)
 
+    async def apply_action(self, bundle, result, user_profile):
+        # This handles the message that server send to itself
+        if result["result"] == "Pending":
+            bundle.status = 0
+            SMTP_result = await self.send_email(
+                user_profile,
+                bundle
+            )
+        # This handles the message that client said let it pass
+        elif result["result"] == "OK":
+            bundle.status = 1
+            SMTP_result = await self.send_email(
+                user_profile,
+                bundle
+            )
+        # Others drop
+        else:
+            bundle.status = -1
+            SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
+                format(result["result"]))
+
+        return SMTP_result
+
     async def returnmq_mod(self):
         self.handler = returnmq.result_handler(silent_mode=True)
         while True:
@@ -349,10 +372,10 @@ class MQHandler(Proxy):
                 self.handler.checkResult()
 
                 # Get current waiting list
-                waiting = list(self.handler.getCurrentId())
+                waiting_list = list(self.handler.getCurrentId())
 
                 # Check if id in waiting list are all legal
-                for corr_id in waiting:
+                for corr_id in waiting_list:
                     # Fetching the emails
                     if corr_id in self.SMTP_Bundles.keys():
                         _result = self.handler.getResult(corr_id)
@@ -361,45 +384,20 @@ class MQHandler(Proxy):
                         self.handler.remove(corr_id)
                         continue
 
-                    # TODO: Handle the return results
                     bundle = self.SMTP_Bundles[corr_id]
                     user_profile = self.registered_users.get(bundle.rcpt)
 
                     self.Debug("Receive from: {0} to: {1}".format(
-                        bundle.envelope.mail_from,
-                        bundle.rcpt
-                    ), header=corr_id)
+                        bundle.envelope.mail_from, bundle.rcpt),header=corr_id)
 
-                    # This handles the message that server send to itself
-                    if result["result"] == "Pending":
-                        bundle.status = 0
-                        SMTP_result = await self.send_email(
-                            user_profile,
-                            bundle
-                        )
-                    # This handles the message that client said let it pass
-                    elif result["result"] == "OK":
-                        bundle.status = 1
-                        SMTP_result = await self.send_email(
-                            user_profile,
-                            bundle
-                        )
-                    # Others drop
-                    else:
-                        bundle.status = -1
-                        pass
+                    # Apply the action that client told us
+                    SMTP_result = await self.apply_action(bundle, result, user_profile)
 
                     # Check if sending operation went wrong
                     if bundle.status != -1:
-                        # **TODO**: If something happened during send?
                         if SMTP_result[0] != 250:
-                            # Output error message and push back the result
-                            # waiting for next retry
                             self.Debug("Something went wrong. {0}".
                                 format(SMTP_result), header=corr_id)
-
-                            # This is not good, need other retring method
-                            #self.handler.pushBack(corr_id, _result)
 
                             # TODO: Try to combine retring mechanism into timeout_mod
                             # retring need the client's result, timeout don't
@@ -409,11 +407,11 @@ class MQHandler(Proxy):
                             # and wait for timeout_mod to resend
                             continue
                         else:
-                            # Good go on~
                             self.Debug("Successfully send out. {0}".
                                 format(SMTP_result), header=corr_id)
                     else:
-                        pass
+                        self.Debug("Remove it. {0}".
+                            format(SMTP_result), header=corr_id)
 
                     # Pop finished job from SMTP_Bundles
                     self.finish(corr_id)
