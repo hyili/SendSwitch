@@ -9,7 +9,7 @@ import requests
 from email.header import decode_header
 
 class receiver():
-    def __init__(self, exchange_id="random", routing_key="random", host="localhost", silent_mode=False, vhost="/", user="guest", password="guest"):
+    def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", silent_mode=False, vhost="/", user="guest", password="guest"):
         # credentials
         self.credentials = pika.PlainCredentials(user, password)
 
@@ -35,6 +35,8 @@ class receiver():
             }
         )
         self.request_queue_id = self.request.method.queue
+
+        self.timeout = timeout
 
     def __del__(self):
         # close connection: after destruction
@@ -110,7 +112,7 @@ class receiver():
             timestamp = time.time()
             # message will not actually be removed when times up
             # it will be removed until message head up the limit
-            expire = 600 * 1000
+            expire = self.timeout * 1000
             response = {
                 "created": int(timestamp),
                 "expire": expire,

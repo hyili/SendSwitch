@@ -23,6 +23,8 @@ def ManagementUI(config):
     registered_servers = config.kwargs["registered_servers"]
     email_domain = config.kwargs["email_domain"]
     host_domain = config.kwargs["host_domain"]
+    timeout = config.kwargs["timeout"]
+    output = config.kwargs["output"]
 
     # Background thread
     # https://github.com/miguelgrinberg/Flask-SocketIO/blob/master/example/app.py
@@ -72,7 +74,7 @@ def ManagementUI(config):
             domain = request.form["domain"]
             email = "{0}@{1}".format(account, domain)
             if not registered_users.get(email):
-                registered_users.add(email)
+                registered_users.add(email=email, timeout=timeout)
                 return "OK"
             else:
                 return "already activated"
@@ -83,7 +85,7 @@ def ManagementUI(config):
     @app.route("/add/<email>", methods=["Get"])
     def Get_add_user(email):
         if not registered_users.get(email):
-            registered_users.add(account=email)
+            registered_users.add(email=email, timeout=timeout)
         return ""
 
     # TODO: deinstall from rabbitmq?

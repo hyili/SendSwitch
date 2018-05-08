@@ -60,6 +60,9 @@ class result_handler():
         except Exception as e:
             self.Debug(e)
 
+    def getCurrentId(self):
+        return self.result.keys()
+
     # Non-Blocking
     def getResult(self, corr_id):
         ret_val = self.result.pop(corr_id, None)
@@ -69,5 +72,13 @@ class result_handler():
         self.checkResult()
         return self.getResult(corr_id)
 
+    # for retrying it is not good to push back the result here
+    # the rotating time is too short
+    def pushBack(self, corr_id, result):
+        self.result.update({corr_id: result})
+
     def clear(self):
         self.result.clear()
+
+    def remove(self, corr_id):
+        return self.getResult(corr_id)

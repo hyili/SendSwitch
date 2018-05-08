@@ -4,7 +4,7 @@ from smtplib import SMTP
 import time
 
 hostname = "localhost"
-port = 8025
+port = 25
 
 client = SMTP(hostname, port)
 while True:

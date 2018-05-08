@@ -65,12 +65,32 @@ servers = server_profile.Servers()
 servers.add("Message-Queue-node", "localhost", 8025)
 servers.add("Amavisd-new-node", "localhost", 8026)
 servers.add("Postfix", "localhost", 10026)
+servers.add("Noop", "localhost", 10000)
+servers.add("CS", "mail.cs.nctu.edu.tw", 25)
+
+# Check servers
+for id in servers.getAll():
+    server = servers.get(id)
+    print(" [*] Server Settings OK: id: \"{0}\", hostname: \"{1}\", port: {2}".
+        format(server.id, server.hostname, server.port))
 
 # Server next hop setup
 default_settings = {
-    "Message-Queue-node": "Amavisd-new-node",
+    "Message-Queue-node": "Postfix",
     "Amavisd-new-node": "Postfix"
 }
+
+# Check settings are correct
+for key in default_settings:
+    if servers.get(key) is None:
+        raise(Exception(" [*] default_settings: \"{0}\" not in servers".
+            format(key)))
+    if servers.get(default_settings[key]) is None:
+        raise(Exception(" [*] default_settings: \"{0}\" not in servers".
+            format(default_settings[key])))
+
+    print(" [*] Route Settings OK: from: \"{0}\" to: \"{1}\"".
+        format(key, default_settings[key]))
 
 # User setup with default route settings
 users = user_profile.Users(settings=default_settings)
@@ -83,6 +103,7 @@ config = Config(registered_servers=servers,
     registered_users=users,
     email_domain="hyili.idv.tw",
     host_domain="hyili.idv.tw",
+    timeout=60,
     output=output)
 
 # Controller setup

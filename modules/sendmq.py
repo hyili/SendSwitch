@@ -8,7 +8,7 @@ import json
 import requests
 
 class sender():
-    def __init__(self, exchange_id="random", routing_keys=["random"], user_profile=None, host="localhost", silent_mode=False):
+    def __init__(self, timeout=600, exchange_id="random", routing_keys=["random"], user_profile=None, host="localhost", silent_mode=False):
         # rabbitmq host
         self.host = host
         self.silent_mode = silent_mode
@@ -45,6 +45,8 @@ class sender():
         # result: storing result
         self.result = []
 
+        self.timeout = 600
+
     def __del__(self):
         # close connection: after destruction
         try:
@@ -75,7 +77,7 @@ class sender():
                 self.Debug("Sent {0}: {1}".format(corr_id, msg))
 
     # Non-Blocking
-    def sendMsg(self, msg, corr_id=None):
+    def sendMsg(self, msg, corr_id=None, result="Pending"):
         # queue publish, send out msg
         timestamp = time.time()
 
@@ -85,12 +87,12 @@ class sender():
 
         # message will not actually be removed when times up
         # it will be removed until message head up the limit
-        expire = (600 if self.user_profile is None else self.user_profile.timeout) * 1000
+        expire = (self.timeout if self.user_profile is None else self.user_profile.timeout) * 1000
         data = {
             "created": int(timestamp),
             "expire": expire,
             "data": msg,
-            "result": "pending"
+            "result": result
         }
 
         try:

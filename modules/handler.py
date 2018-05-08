@@ -12,6 +12,7 @@ import random
 import copy
 import uuid
 import smtplib
+import datetime
 from aiosmtpd.controller import Controller
 from aiosmtpd.handlers import Proxy
 from aiosmtpd.smtp import Session
@@ -20,10 +21,10 @@ from aiosmtpd.smtp import Envelope
 import sendmq
 import returnmq
 
-EMPTYBYTES = b''
-COMMASPACE = ', '
-CRLF = b'\r\n'
-NLCRE = re.compile(br'\r\n|\r|\n')
+EMPTYBYTES = b""
+COMMASPACE = ", "
+CRLF = b"\r\n"
+NLCRE = re.compile(br"\r\n|\r|\n")
 
 class MQHandler(Proxy):
     class MQ_Bundle():
@@ -38,7 +39,8 @@ class MQHandler(Proxy):
             # SMTP side every email has a bundle
             self.corr_id = corr_id
             self.rcpt = rcpt
-            self.timestamp = int(time.time())
+            self.created_timestamp = int(time.time())
+            self.last_retry_timestamp = self.created_timestamp
             self.server = server
             self.session = session
             self.envelope = copy.deepcopy(envelope)
@@ -70,20 +72,35 @@ class MQHandler(Proxy):
         else:
             self.recovery()
 
-    def Debug(self, msg):
+    def Debug(self, msg, header="*"):
         if not self.silent_mode:
-            print(" [*] {0}".format(msg))
-            self.local.log.append(" [*] {0}".format(msg))
+            timestamp = datetime.datetime.now()
+            print(" [{0}] {1}, {2}".format(header, timestamp, msg))
+            # TODO: web log mechanism
+            self.local.log.append(" [{0}] {1}, {2}".
+                format(header, timestamp, msg))
 
-    def finish(self, bundle):
+    def finish(self, corr_id):
+        bundle = self.SMTP_Bundles.pop(corr_id, None)
+        self.local.statistic += 1
+
         try:
+            self.Debug("Remove from backup", header=corr_id)
             os.remove("{0}/{1}".format(self.directory, bundle.corr_id))
-        except:
-            pass
+        except Exception as e:
+            self.Debug("Remove failed. Reason: {0}".format(e),
+                header=corr_id)
+
+        user_profile = self.registered_users.get(bundle.rcpt)
+        # remove from queuing list
+        if user_profile:
+            user_profile.remove_queuing(corr_id)
 
     # backup whole content of envelope
-    def backup(self, bundle):
-        with open("{0}/{1}".format(self.directory, bundle.corr_id), "a") as f:
+    def backup(self, bundle, mode="a"):
+        with open("{0}/{1}".format(self.directory, bundle.corr_id), mode) as f:
+            # TODO: created_timestamp information will lost here
+            # Don't know if it will casue any problem
             data = {}
             data["corr_id"] = bundle.corr_id
             data["envelope_mailfrom"] = bundle.envelope.mail_from
@@ -116,24 +133,32 @@ class MQHandler(Proxy):
                     )
                     self.SMTP_Bundles[data["corr_id"]] = bundle
 
-                    self.Debug("Recover: {0} from: {1} to: {2}".format(
-                        data["corr_id"],
+                    self.Debug("Recover from: {0} to: {1}".format(
                         data["envelope_mailfrom"],
                         data["envelope_rcptto"]
-                    ))
+                    ), header=data["corr_id"])
 
+                    # TODO: there is nothing in registered_users when restart
                     # Resend message
-                    self.send(bundle)
+                    # Check if the receiver is registered
+                    user_profile = self.registered_users.get(bundle.rcpt)
+                    if user_profile is not None:
+                        # Add corr_id to user's queuing_list
+                        user_profile.add_queuing(corr_id)
+
+                    # Send message to MQ
+                    self.send(bundle, user_profile=user_profile)
                 except Exception as e:
                     print(e)
 
-    def send(self, bundle, direct=False):
+    def send(self, bundle, user_profile=None, direct=False):
         if not direct:
             # Check if the recepient is in registered_users list
-            if self.registered_users.get(bundle.rcpt):
+            if user_profile:
                 self._send(
                     rcpt=bundle.rcpt,
                     bundle=bundle,
+                    user_profile=user_profile,
                     exchange_id="mail",
                     routing_key="mail.{0}".format(bundle.rcpt),
                 )
@@ -141,6 +166,7 @@ class MQHandler(Proxy):
                 self._send(
                     rcpt="others",
                     bundle=bundle,
+                    user_profile=user_profile,
                     exchange_id="",
                     routing_key="return",
                 )
@@ -148,17 +174,18 @@ class MQHandler(Proxy):
             self._send(
                 rcpt="others",
                 bundle=bundle,
+                user_profile=user_profile,
                 exchange_id="",
                 routing_key="return",
             )
 
 
-    def _send(self, rcpt, bundle, exchange_id, routing_key):
+    def _send(self, rcpt, bundle, user_profile, exchange_id, routing_key):
         # Check if the per user connection to MQ is established
         if rcpt not in self.MQ_Bundles:
             sender = sendmq.sender(exchange_id=exchange_id,
                 routing_keys=[routing_key],
-                user_profile=self.registered_users.get(rcpt),
+                user_profile=user_profile,
                 silent_mode=True)
             self.MQ_Bundles[rcpt] = self.MQ_Bundle(rcpt, sender)
         sender = self.MQ_Bundles[rcpt].sender
@@ -167,21 +194,19 @@ class MQHandler(Proxy):
         sender.sendMsg(bundle.envelope.content.decode("utf-8", errors="replace"),
             corr_id=bundle.corr_id)
 
-        self.Debug("Send {0}: from: {1} to: {2}".format(
-            bundle.corr_id,
+        self.Debug("Send from: {0} to: {1}".format(
             bundle.envelope.mail_from,
             bundle.rcpt
-        ))
+        ), header=bundle.corr_id)
 
-    async def send_email(self, rcpt, session, envelope):
+    async def send_email(self, user_profile, bundle):
         # get next hostname and port according to user's settings
         remote_server = None
         remote_hostname = None
         remote_port = None
-        user = self.registered_users.get(rcpt)
 
         try:
-            remote_server = user.settings[self.local.id]
+            remote_server = user_profile.settings[self.local.id]
             remote_hostname = self.registered_servers.get(remote_server).hostname
             remote_port = self.registered_servers.get(remote_server).port
         except Exception as e:
@@ -189,14 +214,15 @@ class MQHandler(Proxy):
             remote_hostname = self.remote.hostname
             remote_port = self.remote.port
 
-        self.Debug("Next hop id:{0} host:{1} port:{2}".format(remote_server,
-            remote_hostname, remote_port))
+        self.Debug("Next hop id: {0}, host: {1}, port: {2}".
+            format(remote_server, remote_hostname,
+            remote_port), header=bundle.corr_id)
 
         # check if content is not str
-        if isinstance(envelope.content, str):
-            content = envelope.original_content
+        if isinstance(bundle.envelope.content, str):
+            content = bundle.envelope.original_content
         else:
-            content = envelope.content
+            content = bundle.envelope.content
         lines = content.splitlines(keepends=True)
 
         index = 0
@@ -207,18 +233,18 @@ class MQHandler(Proxy):
                 break
             index += 1
 
-        peer = session.peer[0].encode('ascii')
-        lines.insert(index, b'X-Peer: %s%s' % (peer, ending))
+        peer = bundle.session.peer[0].encode("ascii")
+        lines.insert(index, b"X-Peer: %s%s" % (peer, ending))
         data = EMPTYBYTES.join(lines)
-        refused = self._send_email(envelope.mail_from, envelope.rcpt_tos, data,
-            remote_hostname, remote_port)
+        refused = self._send_email(bundle.envelope.mail_from,
+            bundle.envelope.rcpt_tos, data, remote_hostname, remote_port)
 
         # TODO: what to do with refused addresses?
 
         if len(refused) > 0:
-            return str(refused)
+            return str(refused[bundle.rcpt])
         else:
-            return {'250 OK'}
+            return (250, "OK")
 
     def _send_email(self, mail_from, rcpt_tos, data, remote_hostname,
         remote_port):
@@ -234,12 +260,17 @@ class MQHandler(Proxy):
                 s.quit()
         except smtplib.SMTPRecipientsRefused as e:
             refused = e.recipients
-        except (OSError, smtplib.SMTPException) as e:
+        except smtplib.SMTPException as e:
             # All recipients were refused.  If the exception had an associated
             # error code, use it.  Otherwise, fake it with a non-triggering
             # exception code.
-            errcode = getattr(e, 'smtp_code', -1)
-            errmsg = getattr(e, 'smtp_error', 'ignore')
+            errcode = getattr(e, "smtp_code", -1)
+            errmsg = getattr(e, "smtp_error", str(e))
+            for r in rcpt_tos:
+                refused[r] = (errcode, errmsg)
+        except Exception as e:
+            errcode = -2
+            errmsg = str(e)
             for r in rcpt_tos:
                 refused[r] = (errcode, errmsg)
 
@@ -290,8 +321,15 @@ class MQHandler(Proxy):
                 # Doing backup here to prepare for error recovery
                 self.backup(bundle)
 
+                # Check if the receiver is registered
+                user_profile = self.registered_users.get(rcpt)
+                if user_profile:
+                    # Add corr_id to user's queuing_list
+                    user_profile.add_queuing(corr_id)
+
                 # Send message to MQ
-                self.send(bundle)
+                self.send(bundle, user_profile=user_profile)
+
         except Exception as e:
             return "471 {0}".format(e)
 
@@ -307,49 +345,78 @@ class MQHandler(Proxy):
         self.handler = returnmq.result_handler(silent_mode=True)
         while True:
             if len(self.SMTP_Bundles) > 0:
-                # Fetching result
+                # Fetching result from MQ
                 self.handler.checkResult()
-                SMTP_Bundles_list = list(self.SMTP_Bundles.keys())
-                for corr_id in SMTP_Bundles_list:
-                    _result = self.handler.getResult(corr_id)
-                    if _result:
+
+                # Get current waiting list
+                waiting = list(self.handler.getCurrentId())
+
+                # Check if id in waiting list are all legal
+                for corr_id in waiting:
+                    # Fetching the emails
+                    if corr_id in self.SMTP_Bundles.keys():
+                        _result = self.handler.getResult(corr_id)
                         result = json.loads(_result)
                     else:
+                        self.handler.remove(corr_id)
                         continue
 
                     # TODO: Handle the return results
-                    # TODO: If something happened during send?
-                    if result["result"] == "OK":
+                    bundle = self.SMTP_Bundles[corr_id]
+                    user_profile = self.registered_users.get(bundle.rcpt)
+
+                    self.Debug("Receive from: {0} to: {1}".format(
+                        bundle.envelope.mail_from,
+                        bundle.rcpt
+                    ), header=corr_id)
+
+                    # This handles the message that server send to itself
+                    if result["result"] == "Pending":
+                        bundle.status = 0
                         SMTP_result = await self.send_email(
-                            self.SMTP_Bundles[corr_id].rcpt,
-                            self.SMTP_Bundles[corr_id].session,
-                            self.SMTP_Bundles[corr_id].envelope,
+                            user_profile,
+                            bundle
                         )
-                        self.Debug(SMTP_result)
-                    elif result["result"] == "pending":
+                    # This handles the message that client said let it pass
+                    elif result["result"] == "OK":
+                        bundle.status = 1
                         SMTP_result = await self.send_email(
-                            self.SMTP_Bundles[corr_id].rcpt,
-                            self.SMTP_Bundles[corr_id].session,
-                            self.SMTP_Bundles[corr_id].envelope,
+                            user_profile,
+                            bundle
                         )
-                        self.Debug(SMTP_result)
+                    # Others drop
                     else:
-                        # Do nothing
+                        bundle.status = -1
+                        pass
+
+                    # Check if sending operation went wrong
+                    if bundle.status != -1:
+                        # **TODO**: If something happened during send?
+                        if SMTP_result[0] != 250:
+                            # Output error message and push back the result
+                            # waiting for next retry
+                            self.Debug("Something went wrong. {0}".
+                                format(SMTP_result), header=corr_id)
+
+                            # This is not good, need other retring method
+                            #self.handler.pushBack(corr_id, _result)
+
+                            # TODO: Try to combine retring mechanism into timeout_mod
+                            # retring need the client's result, timeout don't
+                            # It is no need to worry about currently
+
+                            # Continue to avoid the below operation
+                            # and wait for timeout_mod to resend
+                            continue
+                        else:
+                            # Good go on~
+                            self.Debug("Successfully send out. {0}".
+                                format(SMTP_result), header=corr_id)
+                    else:
                         pass
 
                     # Pop finished job from SMTP_Bundles
-                    bundle = self.SMTP_Bundles.pop(corr_id, None)
-                    self.Debug("Receive {0}: from: {1} to: {2}".format(
-                        corr_id,
-                        bundle.envelope.mail_from,
-                        bundle.rcpt
-                    ))
-                    self.finish(bundle)
-                    self.local.statistic += 1
-
-                # Clear all result that does not match anything
-                # TODO: recheck, maybe some problem
-                self.handler.clear()
+                    self.finish(corr_id)
 
             await asyncio.sleep(random.random())
 
@@ -362,13 +429,19 @@ class MQHandler(Proxy):
             # run through every monitored emails
             for corr_id in self.SMTP_Bundles:
                 bundle = self.SMTP_Bundles[corr_id]
-                create_timestamp = bundle.timestamp
+                last_retry_timestamp = bundle.last_retry_timestamp
                 rcpt = bundle.rcpt
                 user_profile = self.registered_users.get(rcpt)
 
-                if timestamp - create_timestamp > user_profile.timeout * 2:
-                    self.send(bundle, direct=True)
+                # set timeout, *2 means to wait for MQ Message timeout first
+                if user_profile is None:
+                    timeout = self.config.kwargs["timeout"] * 2
+                else:
+                    timeout = user_profile.timeout * 2
 
+                if timestamp - last_retry_timestamp > timeout:
+                    self.send(bundle, user_profile=user_profile, direct=True)
+                    bundle.last_retry_timestamp = timestamp
 
 # TODO: routing
 class ProxyHandler(Proxy):

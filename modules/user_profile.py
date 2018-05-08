@@ -1,23 +1,37 @@
 #!/usr/bin/env python3
 
 class User():
-    def __init__(self, email, settings=dict()):
+    def __init__(self, email, timeout=600, settings=dict()):
         self.email = email
         self.account, self.domain = email.split("@")
-        self.timeout = 600
+        self.timeout = timeout
+        self.queuing_list = list()
         self.settings = settings
 
+    def add_queuing(self, corr_id):
+        if corr_id not in self.queuing_list:
+            self.queuing_list.append(corr_id)
+        else:
+            # TODO: May have some problems here
+            pass
+
+    def remove_queuing(self, corr_id):
+        try:
+            self.queuing_list.remove(corr_id)
+        except:
+            # TODO: May have some problems here
+            pass
 
 class Users():
     def __init__(self, settings=None):
         self.registered_user_profile = dict()
         self.default_user_settings = settings
 
-    def add(self, email=None, user=None):
+    def add(self, email=None, timeout=600, user=None):
         if user:
             self.registered_user_profile[user.email] = user
         elif email:
-            user = User(email)
+            user = User(email, timeout)
             self.registered_user_profile[email] = user
 
     def get(self, email):
