@@ -30,12 +30,16 @@ def ManagementUI(config):
     # https://github.com/miguelgrinberg/Flask-SocketIO/blob/master/example/app.py
     def background_thread():
         while True:
+            # email statistic
             server = registered_servers.get("Message-Queue-node")
             data = server.statistic
+
+            # logging
+            output = config.kwargs["output"]
             log = list()
 
-            while len(server.log) > 0:
-                log.append(server.log.pop(0))
+            while len(output.log) > 0:
+                log.append(output.log.pop(0))
 
             socketio.emit("server_statistic", {
                 "data": data,

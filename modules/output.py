@@ -3,3 +3,4 @@
 class Output():
     def __init__(self, *args, **kwargs):
         self.kwargs = kwargs
+        self.log = list()

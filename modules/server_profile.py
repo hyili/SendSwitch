@@ -7,7 +7,6 @@ class Server():
         self.port = port
         self.settings = settings
         self.statistic = 0
-        self.log = list()
 
 class Servers():
     def __init__(self):

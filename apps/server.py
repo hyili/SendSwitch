@@ -76,7 +76,7 @@ for id in servers.getAll():
 
 # Server next hop setup
 default_settings = {
-    "Message-Queue-node": "Postfix",
+    "Message-Queue-node": "Amavisd-new-node",
     "Amavisd-new-node": "Postfix"
 }
 
@@ -117,8 +117,11 @@ SMTPD_ProxyController = Create_ProxyController(config=config,
 
 try:
     print(" [*] Waiting for emails. To exit press CTRL+C")
-    SMTPD_MQController.start()
+
+    # Need to reverse the order of server start
+    # Due to default_settings
     SMTPD_ProxyController.start()
+    SMTPD_MQController.start()
     web.ManagementUI(config)
 
 #    # Do nothing here
