@@ -114,21 +114,30 @@ class ProxyHandler(Proxy):
         peer = bundle.session.peer[0].encode("ascii")
         lines.insert(index, b"X-Peer: %s%s" % (peer, ending))
         data = EMPTYBYTES.join(lines)
-        refused = self._send_email(bundle.envelope.mail_from,
-            bundle.envelope.rcpt_tos, data, remote_hostname, remote_port)
 
-        # TODO: what to do with refused addresses?
+#        refused = self._send_email(bundle.envelope.mail_from, bundle.envelope.rcpt_tos, data, remote_hostname, remote_port)
+        try:
+            refused = await asyncio.wait_for(
+                fut=self._send_email(bundle.envelope.mail_from, bundle.envelope.rcpt_tos, data, remote_hostname, remote_port),
+                timeout=10
+            )
+        except Exception as e:
+            print(e)
+            return {bundle.rcpt: (471, "failed")}
+
         return refused[bundle.rcpt]
 
-    def _send_email(self, mail_from, rcpt_tos, data, remote_hostname,
+    async def _send_email(self, mail_from, rcpt_tos, data, remote_hostname,
         remote_port):
 
         refused = {}
 
+        # TODO: Need to solve hanging problem here
         try:
-            s = smtplib.SMTP()
+            s = smtplib.SMTP(timeout=10)
             s.connect(remote_hostname, remote_port)
             try:
+                # Though s.sendmail can done almost everything, it cannot get the reply
                 s.docmd("HELO {0}".format(self.config.kwargs["host_domain"]))
                 s.docmd("MAIL FROM:<{0}>".format(mail_from))
                 for rcpt in rcpt_tos:
@@ -410,11 +419,39 @@ class MQHandler(ProxyHandler):
             SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
                 format(result["result"]))
 
-        return SMTP_result
+        # Check if sending operation went wrong
+        if bundle.status != -1:
+            if SMTP_result[0] == 250:
+                self.Debug("Successfully send out. {0}".
+                    format(SMTP_result), header=bundle.corr_id)
+            elif SMTP_result[0] < 0:
+                self.Debug("Something went wrong. {0}".
+                    format(SMTP_result), header=bundle.corr_id)
+                return
+
+                # TODO: Try to combine retring mechanism into timeout_mod
+                # retring need the client's result, timeout don't
+                # It is no need to worry about currently
+            else:
+                self.Debug("Something happened. {0}".
+                    format(SMTP_result), header=bundle.corr_id)
+                return
+        else:
+            self.Debug("Remove it. {0}".
+                format(SMTP_result), header=bundle.corr_id)
+
+        # Pop finished job from SMTP_Bundles
+        self.finish(bundle.corr_id)
+
+        return
 
     async def returnmq_mod(self):
         self.handler = returnmq.result_handler(silent_mode=True)
+
         while True:
+            # Subtask list
+            subtasks = list()
+
             if len(self.SMTP_Bundles) > 0:
                 # Fetching result from MQ
                 self.handler.checkResult()
@@ -438,32 +475,17 @@ class MQHandler(ProxyHandler):
                     self.Debug("Receive from: {0}, to: {1}".format(
                         bundle.envelope.mail_from, bundle.rcpt),header=corr_id)
 
+                    # Prepare subtask for loop
+                    # TODO: maybe grouping by each users?
+                    subtasks.append(self.apply_action(bundle, result, user_profile))
+
                     # Apply the action that client told us
-                    SMTP_result = await self.apply_action(bundle, result, user_profile)
+                    #await self.apply_action(bundle, result, user_profile)
 
-                    # Check if sending operation went wrong
-                    if bundle.status != -1:
-                        if SMTP_result[0] == 250:
-                            self.Debug("Successfully send out. {0}".
-                                format(SMTP_result), header=corr_id)
-                        elif SMTP_result[0] < 0:
-                            self.Debug("Something went wrong. {0}".
-                                format(SMTP_result), header=corr_id)
-                            continue
-
-                            # TODO: Try to combine retring mechanism into timeout_mod
-                            # retring need the client's result, timeout don't
-                            # It is no need to worry about currently
-                        else:
-                            self.Debug("Something happened. {0}".
-                                format(SMTP_result), header=corr_id)
-                            continue
-                    else:
-                        self.Debug("Remove it. {0}".
-                            format(SMTP_result), header=corr_id)
-
-                    # Pop finished job from SMTP_Bundles
-                    self.finish(corr_id)
+                # Execute the subtask
+                # Though it can asynchoronously execute the task
+                # But it will still block until all tsaks done
+                await asyncio.gather(*subtasks)
 
             await asyncio.sleep(random.random())
 
