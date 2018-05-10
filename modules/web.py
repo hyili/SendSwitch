@@ -25,6 +25,7 @@ def ManagementUI(config):
     host_domain = config.kwargs["host_domain"]
     timeout = config.kwargs["timeout"]
     output = config.kwargs["output"]
+    ldap_settings = config.kwargs["ldap_settings"]
 
     # Background thread
     # https://github.com/miguelgrinberg/Flask-SocketIO/blob/master/example/app.py
@@ -61,7 +62,7 @@ def ManagementUI(config):
         (account, domain) = email.split("@")
 
         if domain == email_domain:
-            if auth.ldap_authenticate(account, passwd):
+            if auth.ldap_authenticate(account, passwd, ldap_settings):
                 return render_template("manage.html",
                     account=account, domain=domain), 200
             else:

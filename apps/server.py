@@ -98,13 +98,20 @@ users = user_profile.Users(settings=default_settings)
 # Output setup
 output = Output()
 
+# LDAP settings
+ldap_settings = dict()
+ldap_settings["use_ssl"] = False
+ldap_settings["user_dn"] = "uid={0},dc=hyili,dc=idv,dc=tw"
+ldap_settings["ldap_server"] = "localhost"
+
 # Config setup
 config = Config(registered_servers=servers,
     registered_users=users,
     email_domain="hyili.idv.tw",
     host_domain="hyili.idv.tw",
     timeout=60,
-    output=output)
+    output=output,
+    ldap_settings=ldap_settings)
 
 # Controller setup
 SMTPD_MQController = Create_MQController(config=config,
