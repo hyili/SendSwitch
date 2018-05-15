@@ -41,6 +41,8 @@ scan	unix	-		-		n		-		10		smtp
 	-o smtp_generic_maps=
 
 localhost:10026	inet	n		-		n		-		10		smtpd
+	-o smtpd_tls_security_level=
+	-o smtpd_sasl_auth_enable=no
 	-o content_filter=
 	-o receive_override_options=no_unknown_recipient_checks,no_header_body_checks,no_milters
 	-o smtpd_helo_restrictions=

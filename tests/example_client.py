@@ -2,12 +2,17 @@
 
 from smtplib import SMTP
 import time
+import sys
 
 hostname = "localhost"
-port = 25
+port = 8025
 
 client = SMTP(hostname, port)
-while True:
+try:
+    number = int(sys.argv[1])
+except:
+    print("args must be an integer")
+for i in range(0, number, 1):
     try:
         r1 = client.sendmail("a@hyili.idv.tw", ["hyili@hyili.idv.tw"], """\
                     From: Anne Person <anne@hyili.idv.tw>
@@ -20,4 +25,4 @@ while True:
     except Exception as e:
         print(e)
 
-    print("...")
+    print("... {0} ...".format(i))

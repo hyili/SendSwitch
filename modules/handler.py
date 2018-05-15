@@ -14,6 +14,7 @@ import uuid
 import smtplib
 import datetime
 import traceback
+import concurrent.futures
 
 from aiosmtpd.controller import Controller
 from aiosmtpd.handlers import Proxy
@@ -52,10 +53,8 @@ class ProxyHandler(Proxy):
     def __init__(self, config, local, remote, silent_mode=False):
         super().__init__(remote.hostname, remote.port)
 
-        # local server config
+        # local server config & remote server config
         self.local = local
-
-        # remote server config
         self.remote = remote
 
         # global config
@@ -73,11 +72,46 @@ class ProxyHandler(Proxy):
         if not self.silent_mode:
             timestamp = str(datetime.datetime.now())
             print(" [{0:20s}] {1:36s}, {2:26s}, {3:s}".format(self.local.id, header, timestamp, msg))
-            # TODO: web log mechanism
             self.output.log.append(" [{0:20s}] {1:36s}, {2:26s}, {3}".
                 format(self.local.id, header, timestamp, msg))
 
-    async def send_email(self, bundle, user_profile):
+    def check_result(self, bundle, SMTP_result):
+        # Check if sending operation went wrong
+        if bundle.status != -1:
+            if SMTP_result[0] == 250:
+                self.Debug("Successfully send out. {0}".
+                    format(SMTP_result), header=bundle.corr_id)
+            elif SMTP_result[0] < 0:
+                self.Debug("Something went wrong. {0}".
+                    format(SMTP_result), header=bundle.corr_id)
+                return
+
+                # TODO: Try to combine retring mechanism into timeout_mod
+                # retring need the client's result, timeout don't
+                # It is no need to worry about currently
+            else:
+                self.Debug("Something happened. {0}".
+                    format(SMTP_result), header=bundle.corr_id)
+                return
+        else:
+            self.Debug("Remove it. {0}".
+                format(SMTP_result), header=bundle.corr_id)
+
+        # Pop finished job from SMTP_Bundles
+        self.finish(bundle.corr_id)
+
+        return
+
+    def finish(self, corr_id):
+        bundle = self.SMTP_Bundles.pop(corr_id, None)
+        self.local.statistic += 1
+
+        user_profile = self.registered_users.get(bundle.rcpt)
+        # remove from queuing list
+        if user_profile:
+            user_profile.remove_queuing(corr_id)
+
+    def send_email(self, bundle, user_profile):
         # get next hostname and port according to user's settings
         remote_server = None
         remote_hostname = None
@@ -115,19 +149,14 @@ class ProxyHandler(Proxy):
         lines.insert(index, b"X-Peer: %s%s" % (peer, ending))
         data = EMPTYBYTES.join(lines)
 
-#        refused = self._send_email(bundle.envelope.mail_from, bundle.envelope.rcpt_tos, data, remote_hostname, remote_port)
         try:
-            refused = await asyncio.wait_for(
-                fut=self._send_email(bundle.envelope.mail_from, bundle.envelope.rcpt_tos, data, remote_hostname, remote_port),
-                timeout=10
-            )
+            refused = self._send_email(bundle.envelope.mail_from, bundle.envelope.rcpt_tos, data, remote_hostname, remote_port)
         except Exception as e:
-            print(e)
-            return {bundle.rcpt: (471, "failed")}
+            return (471, "Failed. reason: {0}".format(e))
 
         return refused[bundle.rcpt]
 
-    async def _send_email(self, mail_from, rcpt_tos, data, remote_hostname,
+    def _send_email(self, mail_from, rcpt_tos, data, remote_hostname,
         remote_port):
 
         refused = {}
@@ -180,8 +209,6 @@ class ProxyHandler(Proxy):
         try:
             # Send email & put emails under monitoring
             for rcpt in envelope.rcpt_tos:
-                # Save to temporary directory or database
-                # including: each content of SMTP_Bundle
                 corr_id = str(uuid.uuid4())
 
                 # Monitor list
@@ -191,11 +218,14 @@ class ProxyHandler(Proxy):
                 # Check if the receiver is registered
                 user_profile = self.registered_users.get(rcpt)
 
-                # Send message to MQ
-                SMTP_result = await self.send_email(bundle, user_profile)
+                # Send message to next hop
+                SMTP_result = self.send_email(bundle, user_profile)
 
                 # Transform to return string
-                result = "{0} {1}".format(str(SMTP_result[0]), str(SMTP_result[1]))
+                result = "250 OK, saved as {0}, next hop status: {1}".format(corr_id, str(SMTP_result))
+
+                # Check result
+                self.check_result(bundle, SMTP_result)
 
         except Exception as e:
             return "471 {0}".format(e)
@@ -206,12 +236,15 @@ class MQHandler(ProxyHandler):
     def __init__(self, config, local, remote, silent_mode=False):
         super().__init__(config, local, remote)
 
-        self.directory = "/tmp/PSF"
         self.MQ_Bundles = {}
 
+        # Backup & Recovery
+        # TODO: location configuration extraction
+        self.temp_directory = "/tmp/PSF"
+
         # check if temp mail directory exists
-        if not os.path.isdir(self.directory):
-            os.mkdir(self.directory, 0o755)
+        if not os.path.isdir(self.temp_directory):
+            os.mkdir(self.temp_directory, 0o755)
         else:
             self.recovery()
 
@@ -221,7 +254,7 @@ class MQHandler(ProxyHandler):
 
         try:
             self.Debug("Remove from backup", header=corr_id)
-            os.remove("{0}/{1}".format(self.directory, bundle.corr_id))
+            os.remove("{0}/{1}".format(self.temp_directory, bundle.corr_id))
         except Exception as e:
             self.Debug("Remove failed. Reason: {0}".format(e),
                 header=corr_id)
@@ -233,7 +266,7 @@ class MQHandler(ProxyHandler):
 
     # backup whole content of envelope
     def backup(self, bundle, mode="a"):
-        with open("{0}/{1}".format(self.directory, bundle.corr_id), mode) as f:
+        with open("{0}/{1}".format(self.temp_directory, bundle.corr_id), mode) as f:
             # TODO: created_timestamp information will lost here
             # Don't know if it will casue any problem
             data = {}
@@ -248,9 +281,9 @@ class MQHandler(ProxyHandler):
 
     # recover whole content of envelope
     def recovery(self):
-        filenames = os.listdir(self.directory)
+        filenames = os.listdir(self.temp_directory)
         for filename in filenames:
-            with open("{0}/{1}".format(self.directory, filename), "r") as f:
+            with open("{0}/{1}".format(self.temp_directory, filename), "r") as f:
                 try:
                     raw_data = f.read()
                     data = json.loads(raw_data)
@@ -326,6 +359,7 @@ class MQHandler(ProxyHandler):
         sender = self.MQ_Bundles[rcpt].sender
 
         # Send out message to MQ with corr_id
+        # TODO: Maybe run_in_executor?
         sender.sendMsg(bundle.envelope.content.decode("utf-8", errors="replace"),
             corr_id=bundle.corr_id)
 
@@ -385,7 +419,7 @@ class MQHandler(ProxyHandler):
                 self.send(bundle, user_profile=user_profile)
 
                 # Transform to return string
-                result = "250 OK, Saved as {0}".format(corr_id)
+                result = "250 OK, saved as {0}".format(corr_id)
 
         except Exception as e:
             return "471 {0}".format(e)
@@ -398,55 +432,30 @@ class MQHandler(ProxyHandler):
     # EXCEPTION
     # handle_exception(error)
 
-    async def apply_action(self, bundle, result, user_profile):
+    def apply_action(self, bundle, result, user_profile):
         # This handles the message that server send to itself
         if result["result"] == "Pending":
             bundle.status = 0
-            SMTP_result = await self.send_email(
-                bundle,
-                user_profile
-            )
+            SMTP_result = self.send_email(bundle, user_profile)
         # This handles the message that client said let it pass
         elif result["result"] == "OK":
             bundle.status = 1
-            SMTP_result = await self.send_email(
-                bundle,
-                user_profile
-            )
+            SMTP_result = self.send_email(bundle, user_profile)
         # Others drop
         else:
             bundle.status = -1
             SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
                 format(result["result"]))
 
-        # Check if sending operation went wrong
-        if bundle.status != -1:
-            if SMTP_result[0] == 250:
-                self.Debug("Successfully send out. {0}".
-                    format(SMTP_result), header=bundle.corr_id)
-            elif SMTP_result[0] < 0:
-                self.Debug("Something went wrong. {0}".
-                    format(SMTP_result), header=bundle.corr_id)
-                return
-
-                # TODO: Try to combine retring mechanism into timeout_mod
-                # retring need the client's result, timeout don't
-                # It is no need to worry about currently
-            else:
-                self.Debug("Something happened. {0}".
-                    format(SMTP_result), header=bundle.corr_id)
-                return
-        else:
-            self.Debug("Remove it. {0}".
-                format(SMTP_result), header=bundle.corr_id)
-
-        # Pop finished job from SMTP_Bundles
-        self.finish(bundle.corr_id)
+        # Check result and update bundle status
+        self.check_result(bundle, SMTP_result)
 
         return
 
     async def returnmq_mod(self):
         self.handler = returnmq.result_handler(silent_mode=True)
+        loop = asyncio.get_event_loop()
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 
         while True:
             # Subtask list
@@ -475,19 +484,25 @@ class MQHandler(ProxyHandler):
                     self.Debug("Receive from: {0}, to: {1}".format(
                         bundle.envelope.mail_from, bundle.rcpt),header=corr_id)
 
-                    # Prepare subtask for loop
-                    # TODO: maybe grouping by each users?
-                    subtasks.append(self.apply_action(bundle, result, user_profile))
-
-                    # Apply the action that client told us
+                    # Sol.1 Apply the action that client told us
                     #await self.apply_action(bundle, result, user_profile)
 
-                # Execute the subtask
+                    # Sol.2 Prepare subtask for loop
+                    #subtasks.append(self.apply_action(bundle, result, user_profile))
+
+                    # Sol.3
+                    # TODO: maybe grouping by each users?
+                    # https://docs.python.org/3/library/asyncio-dev.html#handle-blocking-functions-correctly
+                    task = loop.run_in_executor(None, self.apply_action, bundle, result, user_profile)
+                    subtasks.append(task)
+
+                #Execute the subtask
                 # Though it can asynchoronously execute the task
                 # But it will still block until all tsaks done
                 await asyncio.gather(*subtasks)
 
-            await asyncio.sleep(random.random())
+            # run every 5 secs
+            await asyncio.sleep(5)
 
     async def timeout_mod(self):
         while True:

@@ -62,11 +62,12 @@ def Create_ProxyController(config, local, remote, silent_mode=False):
 
 # Server setup
 servers = server_profile.Servers()
-servers.add("Message-Queue-node", "localhost", 8025)
-servers.add("Amavisd-new-node", "localhost", 8026)
-servers.add("Postfix", "localhost", 10026)
-servers.add("Noop", "localhost", 10000)
-servers.add("CS", "mail.cs.nctu.edu.tw", 25)
+servers.add(id="Message-Queue-node", hostname="localhost", port=8025)
+servers.add(id="Amavisd-new-node", hostname="localhost", port=8026)
+servers.add(id="CF-2-node", hostname="localhost", port=8027)
+servers.add(id="Postfix", hostname="localhost", port=10026)
+servers.add(id="Noop", hostname="localhost", port=10000)
+servers.add(id="CS", hostname="mail.cs.nctu.edu.tw", port=25)
 
 # Check servers
 for id in servers.getAll():
@@ -75,25 +76,26 @@ for id in servers.getAll():
         format(server.id, server.hostname, server.port))
 
 # Server next hop setup
-default_settings = {
-    "Message-Queue-node": "Amavisd-new-node",
-    "Amavisd-new-node": "Postfix"
+default_user_settings = {
+    "Message-Queue-node": "Postfix",
+    "Amavisd-new-node": "CF-2-node",
+    "CF-2-node": "Postfix"
 }
 
 # Check settings are correct
-for key in default_settings:
+for key in default_user_settings:
     if servers.get(key) is None:
-        raise(Exception(" [*] default_settings: \"{0}\" not in servers".
+        raise(Exception(" [*] default_user_settings: \"{0}\" not in servers".
             format(key)))
-    if servers.get(default_settings[key]) is None:
-        raise(Exception(" [*] default_settings: \"{0}\" not in servers".
-            format(default_settings[key])))
+    if servers.get(default_user_settings[key]) is None:
+        raise(Exception(" [*] default_user_settings: \"{0}\" not in servers".
+            format(default_user_settings[key])))
 
     print(" [*] Route Settings OK: from: \"{0}\" to: \"{1}\"".
-        format(key, default_settings[key]))
+        format(key, default_user_settings[key]))
 
 # User setup with default route settings
-users = user_profile.Users(settings=default_settings)
+users = user_profile.Users(settings=default_user_settings)
 
 # Output setup
 output = Output()
@@ -116,18 +118,23 @@ config = Config(registered_servers=servers,
 # Controller setup
 SMTPD_MQController = Create_MQController(config=config,
     local=servers.get("Message-Queue-node"),
-    remote=servers.get(default_settings["Message-Queue-node"]))
+    remote=servers.get(default_user_settings["Message-Queue-node"]))
 
-SMTPD_ProxyController = Create_ProxyController(config=config,
+SMTPD_ProxyController_1 = Create_ProxyController(config=config,
     local=servers.get("Amavisd-new-node"),
-    remote=servers.get(default_settings["Amavisd-new-node"]))
+    remote=servers.get(default_user_settings["Amavisd-new-node"]))
+
+SMTPD_ProxyController_2 = Create_ProxyController(config=config,
+    local=servers.get("CF-2-node"),
+    remote=servers.get(default_user_settings["CF-2-node"]))
 
 try:
     print(" [*] Waiting for emails. To exit press CTRL+C")
 
     # Need to reverse the order of server start
     # Due to default_settings
-    SMTPD_ProxyController.start()
+    SMTPD_ProxyController_2.start()
+    SMTPD_ProxyController_1.start()
     SMTPD_MQController.start()
     web.ManagementUI(config)
 
@@ -137,12 +144,15 @@ try:
 
     print(" [*] Quit.")
     SMTPD_MQController.stop()
-    SMTPD_ProxyController.stop()
+    SMTPD_ProxyController_1.stop()
+    SMTPD_ProxyController_2.stop()
 except KeyboardInterrupt:
     print(" [*] Signal Catched. Quit.")
     SMTPD_MQController.stop()
-    SMTPD_ProxyController.stop()
+    SMTPD_ProxyController_1.stop()
+    SMTPD_ProxyController_2.stop()
 except Exception as e:
     print(e)
     SMTPD_MQController.stop()
-    SMTPD_ProxyController.stop()
+    SMTPD_ProxyController_1.stop()
+    SMTPD_ProxyController_2.stop()
