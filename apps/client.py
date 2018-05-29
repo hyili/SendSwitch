@@ -13,7 +13,6 @@ async def test1():
     print("narukodo test1")
 
 async def test2():
-    await asyncio.sleep(10)
     print("narukodo test2")
 
 loop = asyncio.new_event_loop()
