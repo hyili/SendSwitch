@@ -9,6 +9,9 @@ in master.cf
 smtp      inet  n       -       n       -       -       smtpd
 	-o content_filter=filter:dummy
 
+submission inet n       -       n       -       -       smtpd
+	-o syslog_name=postfix/submission
+
 filter		unix	-	n	n	-	1	pipe
 	flags=Rq user=hyili null_sender=
 	argv=/home/hyili/Postfix_Spammer_Filter/apps/contentfilter.py -f ${sender} -- ${recipient}

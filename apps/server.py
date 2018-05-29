@@ -7,7 +7,7 @@ import asyncio
 from aiosmtpd.controller import Controller
 from aiosmtpd.handlers import Proxy
 
-sys.path.append("../modules/")
+sys.path.append("../modules/server-side")
 from handler import MQHandler, ProxyHandler
 from config_loader import Config
 from output import Output

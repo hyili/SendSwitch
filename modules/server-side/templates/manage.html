@@ -12,7 +12,7 @@
     <script>
         function activate_jQuery() {
             $.post(
-                "/add",
+                "add",
                 { "account": "{{ account }}", "domain": "{{ domain }}"},
                 function(data) {
                     alert("Response: " + data);
@@ -22,7 +22,7 @@
 
         function deactivate_jQuery() {
             $.post(
-                "/del",
+                "del",
                 { "account": "{{ account }}", "domain": "{{ domain }}"},
                 function(data) {
                     alert("Response: " + data);
@@ -32,7 +32,7 @@
 
         function show_jQuery() {
             $.post(
-                "/show",
+                "show",
                 {},
                 function(data) {
                     alert("Response: " + data);
@@ -42,7 +42,7 @@
 
         function connect_jQuery(local, remote) {
             $.post(
-                "/route",
+                "route",
                 { "account": "{{ account }}", "domain": "{{ domain }}", "local": local, "remote": remote},
                 function(data) {
                     alert("Response: " + data);
@@ -51,12 +51,12 @@
         }
 
         function logout_jQuery() {
-            document.location.href = "/";
+            document.location.href += "/..";
         }
 
         function activate_ajax() {
             var xhttp = new XMLHttpRequest();
-            xhttp.open("POST", "/add", true);
+            xhttp.open("POST", "add", true);
             xhttp.setRequestHeader("Content-type", "application/json");
             xhttp.send();
             var response = JSON.parse(xhttp.responseText);
