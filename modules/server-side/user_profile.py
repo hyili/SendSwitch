@@ -22,6 +22,9 @@ class User():
             # TODO: May have some problems here
             pass
 
+    def get_queuing_list(self):
+        return self.queuing_list
+
 class Users():
     def __init__(self, settings=None):
         self.registered_user_profile = dict()

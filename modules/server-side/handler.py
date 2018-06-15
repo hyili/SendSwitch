@@ -238,6 +238,12 @@ class MQHandler(ProxyHandler):
 
         self.MQ_Bundles = {}
 
+        # workers
+        self.max_workers = config.kwargs["max_workers"]
+
+        # flush queue
+        self.flush_queue = config.kwargs["flush_queue"]
+
         # Backup & Recovery
         # TODO: location configuration extraction
         self.temp_directory = "/tmp/PSF"
@@ -347,7 +353,6 @@ class MQHandler(ProxyHandler):
                 routing_key="return",
             )
 
-
     def _send(self, rcpt, bundle, user_profile, exchange_id, routing_key):
         # Check if the per user connection to MQ is established
         if rcpt not in self.MQ_Bundles:
@@ -455,7 +460,7 @@ class MQHandler(ProxyHandler):
     async def returnmq_mod(self):
         self.handler = returnmq.result_handler(silent_mode=True)
         loop = asyncio.get_event_loop()
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=4)
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
 
         while True:
             # Subtask list
@@ -523,6 +528,11 @@ class MQHandler(ProxyHandler):
                 else:
                     timeout = user_profile.timeout * 2
 
-                if timestamp - last_retry_timestamp > timeout:
+                # check if the mail have flush request
+                if corr_id in self.flush_queue:
+                    self.send(bundle, user_profile=user_profile, direct=False)
+                    bundle.last_retry_timestamp = timestamp
+                # check if time is up
+                elif timestamp - last_retry_timestamp > timeout:
                     self.send(bundle, user_profile=user_profile, direct=True)
                     bundle.last_retry_timestamp = timestamp

@@ -25,6 +25,7 @@ def ManagementUI(config):
     host_domain = config.kwargs["host_domain"]
     timeout = config.kwargs["timeout"]
     output = config.kwargs["output"]
+    flush_queue = config.kwargs["flush_queue"]
     ldap_settings = config.kwargs["ldap_settings"]
 
     # Background thread
@@ -36,7 +37,6 @@ def ManagementUI(config):
             data = server.statistic
 
             # logging
-            output = config.kwargs["output"]
             log = list()
 
             while len(output.log) > 0:
@@ -55,7 +55,7 @@ def ManagementUI(config):
         return render_template("helloworld.html"), 200
 
     @app.route("/manage", methods=["Post"])
-    def management_page():
+    def manage():
         # fetch form variable
         email = request.form["email"]
         passwd = request.form["passwd"]
@@ -72,6 +72,7 @@ def ManagementUI(config):
 
     # APIs
     # TODO: install to rabbitmq?
+    # TODO: permission check
     @app.route("/add", methods=["Post"])
     def add_user():
         try:
@@ -86,7 +87,7 @@ def ManagementUI(config):
         except Exception as e:
             return str(e)
 
-    # for manual test
+    # Only for manual test
     @app.route("/add/<email>", methods=["Get"])
     def Get_add_user(email):
         if not registered_users.get(email):
@@ -94,6 +95,7 @@ def ManagementUI(config):
         return ""
 
     # TODO: deinstall from rabbitmq?
+    # TODO: permission check
     @app.route("/del", methods=["Post"])
     def del_user():
         try:
@@ -108,6 +110,8 @@ def ManagementUI(config):
         except Exception as e:
             return str(e)
 
+    # TODO: setup route for user
+    # TODO: permission check
     @app.route("/route", methods=["Post"])
     def route():
         account = request.form["account"]
@@ -136,14 +140,35 @@ def ManagementUI(config):
     def show_user():
         return str(registered_users.getAll())
 
+    # TODO: permission check
+    # TODO: flush_queue duplicate
+    @app.route("/flush", methods=["Post"])
+    def flush_queuing_mail():
+        account = request.form["account"]
+        domain = request.form["domain"]
+        email = "{0}@{1}".format(account, domain)
+
+        user = registered_users.get(email)
+        if user:
+            try:
+                flush_queue.extend(user.get_queuing_list())
+                return "OK"
+            except Exception as e:
+                return "Something wrong"
+        else:
+            return "Who are you"
+
+    # TODO: permission check
     @app.route("/monitor")
     def monitor():
         return render_template("monitor.html")
 
+    # TODO: permission check
     @socketio.on("client_event", namespace="/monitor")
     def client_msg(msg):
         emit("server_response", {"data": msg["data"]}, namespace="/monitor")
 
+    # TODO: permission check
     @socketio.on("connect_event", namespace="/monitor")
     def connected_msg(msg):
         emit("server_response", {"data": msg["data"]}, namespace="/monitor")

@@ -9,7 +9,7 @@ import requests
 from email.header import decode_header
 
 class receiver():
-    def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", silent_mode=False, vhost="/", user="guest", password="guest"):
+    def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", silent_mode=False, vhost="/", user="guest", password="guest", output=None):
         # credentials
         self.credentials = pika.PlainCredentials(user, password)
 
@@ -37,10 +37,16 @@ class receiver():
         self.request_queue_id = self.request.method.queue
 
         self.timeout = timeout
+        self.output = output
+
+        # processors
+        self.processors = list()
+        self.init_processor()
 
     def __del__(self):
         # close connection: after destruction
         try:
+            self.channel.stop_consuming()
             self.connection.close()
         except:
             pass
@@ -50,22 +56,32 @@ class receiver():
             print(" [*] {0}".format(msg))
 
     def extract_payload(self, p):
+        ret = ""
 
         for part in p.walk():
             if part.get_content_maintype() == "text":
                 charset = part.get_content_charset()
                 if charset is not None:
-                    self.Debug(part.get_payload(decode=True).decode(charset, errors="replace"))
+                    payload = part.get_payload(decode=True).decode(charset, errors="replace")
+                    self.Debug(payload)
+                    ret += payload
                 else:
-                    self.Debug(part.get_payload(decode=True).decode(errors="replace"))
+                    payload = part.get_payload(decode=True).decode(errors="replace")
+                    self.Debug(payload)
+                    ret += payload
 #            if part.get_content_type() == "multipart/alternative":
 #                for alter_part in reversed(part.get_payload()):
 #                    self.extract_payload(alter_part)
 
-    def email_handler(self, msg):
+        return ret
+
+    def email_translator(self, msg):
+        ret = dict()
         p = email.message_from_string(msg)
 
+        # Exteacting header
         self.Debug("header:")
+        ret["header"] = dict()
         for pp_key in set(p.keys()):
             pp_value = p.get_all(pp_key, None)
             # concat 2 header.from into 1
@@ -82,6 +98,7 @@ class receiver():
                             else:
                                 content = "{0} {1}".format(content, _content)
                     self.Debug("{0}:{1}".format(pp_key, content))
+                    ret["header"][pp_key] = content
             else:
                 pair = decode_header(pp_value)
                 content = ""
@@ -94,21 +111,52 @@ class receiver():
                         else:
                             content = "{0} {1}".format(content, _content)
                 self.Debug("{0}:{1}".format(pp_key, content))
+                ret["header"][pp_key] = content
+
+        # Extracting payload
         self.Debug("payload:")
-        self.extract_payload(p)
+        ret["payload"] = self.extract_payload(p)
+
+        # Appending result
+        ret["result"] = "OK"
+
+        # returning
+        return ret
+
+    def email_handler(self, origin_msg, translator, processors):
+        msg = translator(origin_msg)
+
+        for processor in processors:
+            try:
+                msg = processor(msg)
+            except Exception as e:
+                self.Debug("Some error occurred during {0}... Skipped this function".format(processor.__name__))
+                self.Debug(e)
+
+        return msg
+
+    # TODO: redirect to web output
+    def redirect_output(self, origin_msg):
+        if self.output is not None:
+            json_msg = json.dumps(origin_msg)
+            self.output.info.append(json_msg)
+
+        return origin_msg
 
     def consume_request(self, channel, method, properties, body):
         try:
             # json format load
             data = json.loads(body)
 
+            # Debug message
             self.Debug("Receive {0}".format(data))
 
-            # email handler
-            self.email_handler(data["data"])
+            # TODO: email handler
+            current_processors = list(self.processors)
+            ret = self.email_handler(data["data"], self.email_translator, current_processors)
 
             # resoponse message
-            msg = "OK"
+            msg = ret["result"]
             timestamp = time.time()
             # message will not actually be removed when times up
             # it will be removed until message head up the limit
@@ -139,6 +187,21 @@ class receiver():
             channel.basic_nack(delivery_tag=method.delivery_tag)
             self.Debug(e)
 
+    def init_processor(self):
+        self.processors.append(self.redirect_output)
+
+    def append_processor(self, processor):
+        self.processors.append(processor)
+
+    def remove_processor(self, processor):
+        pass
+
+    def list_processor(self):
+        pass
+
+    def clear_processor(self):
+        self.processors.clear()
+
     def run(self):
         # wait for request, and do not allow other consumers on current queue
         self.channel.basic_consume(self.consume_request,
@@ -149,24 +212,7 @@ class receiver():
         self.Debug("Waiting for messages. To exit press CTRL+C")
         self.channel.start_consuming()
 
-# start receiver
-if __name__ == "__main__":
-    args = sys.argv
-    try:
-        if len(args) == 4:
-            r = requests.get("http://{localhost}:60666/routingkey")
-            data = r.json()
-            C = receiver(exchange_id="mail", routing_key=data["routing_key"], host="hostname", vhost=args[1], user=args[2], password=args[3])
-            C.run()
-        elif len(args) == 6:
-            C = receiver(exchange_id=args[1], routing_key=args[2], vhost=args[3], user=args[4], password=args[5])
-            C.run()
-        else:
-            print("./recvmq.py [exchange_id] [routing_key] [vhost] [user] [password]")
-    except pika.exceptions.ProbableAuthenticationError as e:
-        print(e)
-    except KeyboardInterrupt:
-        print(" [*] Signal Catched. Quit.")
-    except Exception as e:
-        print(e)
-        print("./recvmq.py [exchange_id] [routing_key] [vhost] [user] [password]")
+    def close(self):
+        self.Debug("Waiting for consumers to close.")
+        self.channel.stop_consuming()
+        self.connection.close()

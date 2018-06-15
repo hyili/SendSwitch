@@ -4,18 +4,32 @@
 # that RabbitMQ reveals in public network may cause problems
 
 import sys
-import asyncio
 
 sys.path.append("../modules/client-side")
+from config_loader import Config
+from output import Output
+from controller import Client_Controller
 import web
 
-async def test1():
-    print("narukodo test1")
+# Output setup
+output = Output()
 
-async def test2():
-    print("narukodo test2")
+# Config setup
+config = Config(auth={"vhost": "test", "user": "test", "password": "test"},
+    output=output)
 
-loop = asyncio.new_event_loop()
-loop.create_task(test1())
-loop.run_until_complete(test2())
-web.ManagementUI()
+# Controller setup
+Controller = Client_Controller(config)
+
+try:
+    Controller.start()
+    web.ManagementUI(config)
+
+    print(" [*] Quit.")
+    Controller.stop()
+except KeyboardInterrupt:
+    print(" [*] Signal Catched. Quit.")
+    Controller.stop()
+except Exception as e:
+    print(e)
+    Controller.stop()

@@ -113,7 +113,9 @@ config = Config(registered_servers=servers,
     host_domain="hyili.idv.tw",
     timeout=60,
     output=output,
-    ldap_settings=ldap_settings)
+    flush_queue=list(),
+    ldap_settings=ldap_settings,
+    max_workers=4)
 
 # Controller setup
 SMTPD_MQController = Create_MQController(config=config,
@@ -137,10 +139,6 @@ try:
     SMTPD_ProxyController_1.start()
     SMTPD_MQController.start()
     web.ManagementUI(config)
-
-#    # Do nothing here
-#    while True:
-#        time.sleep(random.random())
 
     print(" [*] Quit.")
     SMTPD_MQController.stop()
