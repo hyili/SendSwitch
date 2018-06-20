@@ -12,6 +12,8 @@ def ManagementUI(config):
     app.config["SECRET_KEY"] = "secret!"
     socketio = SocketIO(app)
 
+    web_host = config.kwargs["web_host"]
+    web_port = config.kwargs["web_port"]
     output = config.kwargs["output"]
 
     # Background thread
@@ -24,8 +26,13 @@ def ManagementUI(config):
             # info
             info = list()
 
-            while len(output.info) > 0:
-                info.append(str(output.info.pop(0)))
+            # try to fetch all the output message
+            while True:
+                msg = output.recv()
+                if msg is not None:
+                    info.append(msg)
+                else:
+                    break
 
             socketio.emit("server_statistic", {
                 "data": data,
@@ -58,4 +65,4 @@ def ManagementUI(config):
 
     # TODO: session SSO
     socketio.start_background_task(target=background_thread)
-    socketio.run(app=app, host="0.0.0.0", port=61666)
+    socketio.run(app=app, host=web_host, port=web_port)

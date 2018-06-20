@@ -6,15 +6,15 @@ import time
 import datetime
 import email
 import requests
-from email.header import decode_header
 
 class receiver():
-    def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", silent_mode=False, vhost="/", user="guest", password="guest", output=None):
+    def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", port=5672, processors=list(), silent_mode=False, vhost="/", user="guest", password="guest", output=None):
         # credentials
         self.credentials = pika.PlainCredentials(user, password)
 
         # rabbitmq host
         self.host = host
+        self.port = port
         self.silent_mode = silent_mode
 
         # exchange_id & routing_key
@@ -22,7 +22,7 @@ class receiver():
         self.routing_key = routing_key
 
         # connection to rabbitmq & channel declaration
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, virtual_host=vhost, credentials=self.credentials))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, port=self.port, virtual_host=vhost, credentials=self.credentials))
         self.channel = self.connection.channel()
         self.channel.basic_qos(prefetch_count=1)
 
@@ -40,7 +40,7 @@ class receiver():
         self.output = output
 
         # processors
-        self.processors = list()
+        self.processors = processors
         self.init_processor()
 
     def __del__(self):
@@ -48,89 +48,31 @@ class receiver():
         try:
             self.channel.stop_consuming()
             self.connection.close()
-        except:
-            pass
+        except Exception as e:
+            self.Debug(e)
 
     def Debug(self, msg):
         if not self.silent_mode:
             print(" [*] {0}".format(msg))
 
-    def extract_payload(self, p):
-        ret = ""
-
-        for part in p.walk():
-            if part.get_content_maintype() == "text":
-                charset = part.get_content_charset()
-                if charset is not None:
-                    payload = part.get_payload(decode=True).decode(charset, errors="replace")
-                    self.Debug(payload)
-                    ret += payload
-                else:
-                    payload = part.get_payload(decode=True).decode(errors="replace")
-                    self.Debug(payload)
-                    ret += payload
-#            if part.get_content_type() == "multipart/alternative":
-#                for alter_part in reversed(part.get_payload()):
-#                    self.extract_payload(alter_part)
-
-        return ret
-
-    def email_translator(self, msg):
-        ret = dict()
-        p = email.message_from_string(msg)
-
-        # Exteacting header
-        self.Debug("header:")
-        ret["header"] = dict()
-        for pp_key in set(p.keys()):
-            pp_value = p.get_all(pp_key, None)
-            # concat 2 header.from into 1
-            if isinstance(pp_value, list):
-                for element in pp_value:
-                    pair = decode_header(element)
-                    content = ""
-                    for (_content, _charset) in pair:
-                        if _charset:
-                            content = "{0} {1}".format(content, _content.decode(_charset))
-                        else:
-                            if isinstance(_content, (bytes, bytearray)):
-                                content = "{0} {1}".format(content, _content.decode())
-                            else:
-                                content = "{0} {1}".format(content, _content)
-                    self.Debug("{0}:{1}".format(pp_key, content))
-                    ret["header"][pp_key] = content
-            else:
-                pair = decode_header(pp_value)
-                content = ""
-                for (_content, _charset) in pair:
-                    if _charset:
-                        content = "{0} {1}".format(content, _content.decode(_charset))
-                    else:
-                        if isinstance(_content, (bytes, bytearray)):
-                            content = "{0} {1}".format(content, _content.decode())
-                        else:
-                            content = "{0} {1}".format(content, _content)
-                self.Debug("{0}:{1}".format(pp_key, content))
-                ret["header"][pp_key] = content
-
-        # Extracting payload
-        self.Debug("payload:")
-        ret["payload"] = self.extract_payload(p)
-
-        # Appending result
-        ret["result"] = "OK"
-
-        # returning
-        return ret
-
-    def email_handler(self, origin_msg, translator, processors):
-        msg = translator(origin_msg)
+    def email_handler(self, origin_msg, processors):
+        msg = origin_msg
 
         for processor in processors:
+            # temporarily save previous msg
+            temp_msg = msg
+
             try:
+                # parse to processor
                 msg = processor(msg)
+
+                # TODO: check msg structure?
+                # if nothing comes back
+                if msg is None:
+                    self.Debug("Nothing comes back, returning previous result.")
+                    msg = temp_msg
             except Exception as e:
-                self.Debug("Some error occurred during {0}... Skipped this function".format(processor.__name__))
+                self.Debug("Some error occurred during {0}... Error shows below, Skipped this function".format(processor.__name__))
                 self.Debug(e)
 
         return msg
@@ -139,9 +81,12 @@ class receiver():
     def redirect_output(self, origin_msg):
         if self.output is not None:
             json_msg = json.dumps(origin_msg)
-            self.output.info.append(json_msg)
+            self.output.send(json_msg)
 
         return origin_msg
+
+    def init_processor(self):
+        self.processors.insert(0, self.redirect_output)
 
     def consume_request(self, channel, method, properties, body):
         try:
@@ -153,7 +98,7 @@ class receiver():
 
             # TODO: email handler
             current_processors = list(self.processors)
-            ret = self.email_handler(data["data"], self.email_translator, current_processors)
+            ret = self.email_handler(data["data"], current_processors)
 
             # resoponse message
             msg = ret["result"]
@@ -186,21 +131,6 @@ class receiver():
         except Exception as e:
             channel.basic_nack(delivery_tag=method.delivery_tag)
             self.Debug(e)
-
-    def init_processor(self):
-        self.processors.append(self.redirect_output)
-
-    def append_processor(self, processor):
-        self.processors.append(processor)
-
-    def remove_processor(self, processor):
-        pass
-
-    def list_processor(self):
-        pass
-
-    def clear_processor(self):
-        self.processors.clear()
 
     def run(self):
         # wait for request, and do not allow other consumers on current queue

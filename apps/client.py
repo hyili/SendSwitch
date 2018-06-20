@@ -6,17 +6,14 @@
 import sys
 
 sys.path.append("../modules/client-side")
-from config_loader import Config
-from output import Output
 from controller import Client_Controller
 import web
 
-# Output setup
-output = Output()
+sys.path.append("../config")
+import client_config
 
 # Config setup
-config = Config(auth={"vhost": "test", "user": "test", "password": "test"},
-    output=output)
+config = client_config.config
 
 # Controller setup
 Controller = Client_Controller(config)
@@ -31,5 +28,5 @@ except KeyboardInterrupt:
     print(" [*] Signal Catched. Quit.")
     Controller.stop()
 except Exception as e:
-    print(e)
+    print(" [*] Something wrong happened. {0}".format(e))
     Controller.stop()

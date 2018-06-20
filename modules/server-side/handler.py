@@ -14,9 +14,10 @@ import uuid
 import smtplib
 import datetime
 import traceback
+import email
 import concurrent.futures
 
-from aiosmtpd.controller import Controller
+from email.header import decode_header
 from aiosmtpd.handlers import Proxy
 from aiosmtpd.smtp import Session
 from aiosmtpd.smtp import Envelope
@@ -47,7 +48,76 @@ class SMTP_Bundle():
         self.session = session
         self.envelope = copy.deepcopy(envelope)
         self.envelope.rcpt_tos = [rcpt]
+        try:
+            self.data = self.email_translator(self.envelope.original_content)
+        except Exception as e:
+            print(" [*] Decode error occurred. {0}".format(e))
+
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print(traceback.print_exc())
+
         self.status = 0
+
+    def extract_payload(self, p):
+        ret = ""
+
+        for part in p.walk():
+            if part.get_content_maintype() == "text":
+                charset = part.get_content_charset()
+                if charset is not None:
+                    payload = part.get_payload(decode=True).decode(charset, errors="replace")
+                    ret += payload
+                else:
+                    payload = part.get_payload(decode=True).decode(errors="replace")
+                    ret += payload
+            # TODO: Can extend more content type here
+
+        return ret
+
+    def email_translator(self, msg):
+        ret = dict()
+        p = email.message_from_bytes(msg)
+
+        # Exteacting header
+        #self.Debug("header:")
+        ret["header"] = dict()
+        for pp_key in set(p.keys()):
+            pp_value = p.get_all(pp_key, None)
+            # concat 2 header.from into 1
+            if isinstance(pp_value, list):
+                for element in pp_value:
+                    pair = decode_header(element)
+                    content = ""
+                    for (_content, _charset) in pair:
+                        if _charset:
+                            content = "{0} {1}".format(content, _content.decode(_charset))
+                        else:
+                            if isinstance(_content, (bytes, bytearray)):
+                                content = "{0} {1}".format(content, _content.decode())
+                            else:
+                                content = "{0} {1}".format(content, _content)
+                    ret["header"][pp_key.lower()] = content
+            else:
+                pair = decode_header(pp_value)
+                content = ""
+                for (_content, _charset) in pair:
+                    if _charset:
+                        content = "{0} {1}".format(content, _content.decode(_charset))
+                    else:
+                        if isinstance(_content, (bytes, bytearray)):
+                            content = "{0} {1}".format(content, _content.decode())
+                        else:
+                            content = "{0} {1}".format(content, _content)
+                ret["header"][pp_key.lower()] = content
+
+        # Extracting payload
+        ret["payload"] = self.extract_payload(p)
+
+        # Appending result
+        ret["result"] = "OK"
+
+        # returning
+        return ret
 
 class ProxyHandler(Proxy):
     def __init__(self, config, local, remote, silent_mode=False):
@@ -72,7 +142,7 @@ class ProxyHandler(Proxy):
         if not self.silent_mode:
             timestamp = str(datetime.datetime.now())
             print(" [{0:20s}] {1:36s}, {2:26s}, {3:s}".format(self.local.id, header, timestamp, msg))
-            self.output.log.append(" [{0:20s}] {1:36s}, {2:26s}, {3}".
+            self.output.send(" [{0:20s}] {1:36s}, {2:26s}, {3}".
                 format(self.local.id, header, timestamp, msg))
 
     def check_result(self, bundle, SMTP_result):
@@ -130,7 +200,7 @@ class ProxyHandler(Proxy):
             format(remote_server, remote_hostname,
             remote_port), header=bundle.corr_id)
 
-        # check if content is not str
+        # TODO: only bytes has splitlines
         if isinstance(bundle.envelope.content, str):
             content = bundle.envelope.original_content
         else:
@@ -161,7 +231,6 @@ class ProxyHandler(Proxy):
 
         refused = {}
 
-        # TODO: Need to solve hanging problem here
         try:
             s = smtplib.SMTP(timeout=10)
             s.connect(remote_hostname, remote_port)
@@ -176,7 +245,7 @@ class ProxyHandler(Proxy):
                 s.send("\r\n.\r\n")
                 reply = s.getreply()
                 for rcpt in rcpt_tos:
-                    refused[rcpt] = (reply[0], str(reply[1].decode(errors="replace")))
+                    refused[rcpt] = (reply[0], str(reply[1].decode("utf-8", errors="replace")))
             finally:
                 s.quit()
         except smtplib.SMTPRecipientsRefused as e:
@@ -199,6 +268,7 @@ class ProxyHandler(Proxy):
 
     # RCPT TO Command
     async def handle_RCPT(self, server, session, envelope, address, rcpt_options):
+        # TODO: relay access control
 #        if not address.endswith("{0}".format(self.config.kwargs["email_domain"])):
 #            return "550 not relaying to that domain."
         envelope.rcpt_tos.append(address)
@@ -233,37 +303,44 @@ class ProxyHandler(Proxy):
         return result
 
 class MQHandler(ProxyHandler):
-    def __init__(self, config, local, remote, silent_mode=False):
-        super().__init__(config, local, remote)
+    def __init__(self, config, local, remote, host="localhost", backup_enable=False, temp_directory="/tmp/PSF", silent_mode=False):
+        super().__init__(config, local, remote, silent_mode=silent_mode)
 
+        # MQ connections
         self.MQ_Bundles = {}
+
+        # MQ host & port
+        self.MQ_host = config.kwargs["MQ_host"]
+        self.MQ_port = config.kwargs["MQ_port"]
 
         # workers
         self.max_workers = config.kwargs["max_workers"]
 
         # flush queue
-        self.flush_queue = config.kwargs["flush_queue"]
+        self.flush = config.kwargs["flush"]
 
         # Backup & Recovery
-        # TODO: location configuration extraction
-        self.temp_directory = "/tmp/PSF"
+        self.temp_directory = temp_directory
 
         # check if temp mail directory exists
-        if not os.path.isdir(self.temp_directory):
-            os.mkdir(self.temp_directory, 0o755)
-        else:
-            self.recovery()
+        self.backup_enable = backup_enable
+        if backup_enable:
+            if not os.path.isdir(self.temp_directory):
+                os.mkdir(self.temp_directory, 0o755)
+            else:
+                self.recovery()
+                pass
 
     def finish(self, corr_id):
         bundle = self.SMTP_Bundles.pop(corr_id, None)
         self.local.statistic += 1
 
-        try:
-            self.Debug("Remove from backup", header=corr_id)
-            os.remove("{0}/{1}".format(self.temp_directory, bundle.corr_id))
-        except Exception as e:
-            self.Debug("Remove failed. Reason: {0}".format(e),
-                header=corr_id)
+        if self.backup_enable:
+            try:
+                self.Debug("Remove from backup", header=corr_id)
+                os.remove("{0}/{1}".format(self.temp_directory, bundle.corr_id))
+            except Exception as e:
+                self.Debug("Remove failed. Reason: {0}".format(e), header=corr_id)
 
         user_profile = self.registered_users.get(bundle.rcpt)
         # remove from queuing list
@@ -279,7 +356,7 @@ class MQHandler(ProxyHandler):
             data["corr_id"] = bundle.corr_id
             data["envelope_mailfrom"] = bundle.envelope.mail_from
             data["envelope_rcptto"] = bundle.envelope.rcpt_tos[0]
-            data["envelope_content"] = bundle.envelope.content.decode("utf-8", errors="replace")
+            data["envelope_content"] = bundle.envelope.content
             data["session_peer"] = bundle.session.peer
 
             raw_data = json.dumps(data)
@@ -299,7 +376,7 @@ class MQHandler(ProxyHandler):
                     session.peer = data["session_peer"]
                     envelope.mail_from = data["envelope_mailfrom"]
                     envelope.rcpt_tos = [data["envelope_rcptto"]]
-                    envelope.content = data["envelope_content"].encode("utf-8", errors="replace")
+                    envelope.content = data["envelope_content"]
 
                     bundle = SMTP_Bundle(data["corr_id"],
                         data["envelope_rcptto"],
@@ -359,14 +436,15 @@ class MQHandler(ProxyHandler):
             sender = sendmq.sender(exchange_id=exchange_id,
                 routing_keys=[routing_key],
                 user_profile=user_profile,
+                host=self.MQ_host,
+                port=self.MQ_port,
                 silent_mode=True)
             self.MQ_Bundles[rcpt] = MQ_Bundle(rcpt, sender)
         sender = self.MQ_Bundles[rcpt].sender
 
         # Send out message to MQ with corr_id
         # TODO: Maybe run_in_executor?
-        sender.sendMsg(bundle.envelope.content.decode("utf-8", errors="replace"),
-            corr_id=bundle.corr_id)
+        sender.sendMsg(bundle.data, corr_id=bundle.corr_id)
 
         self.Debug("Send from: {0}, to: {1}".format(
             bundle.envelope.mail_from,
@@ -412,7 +490,8 @@ class MQHandler(ProxyHandler):
                 self.SMTP_Bundles[corr_id] = bundle
 
                 # Doing backup here to prepare for error recovery
-                self.backup(bundle)
+                if self.backup_enable:
+                    self.backup(bundle)
 
                 # Check if the receiver is registered
                 user_profile = self.registered_users.get(rcpt)
@@ -506,14 +585,28 @@ class MQHandler(ProxyHandler):
                 # But it will still block until all tsaks done
                 await asyncio.gather(*subtasks)
 
-            # run every 5 secs
-            await asyncio.sleep(5)
+            # run every 10*random secs
+            await asyncio.sleep(random.random()*10)
 
     async def timeout_mod(self):
         while True:
-            # run every 10 secs
-            await asyncio.sleep(10)
+            # run every 10*random secs
+            await asyncio.sleep(random.random()*10)
             timestamp = int(time.time())
+
+            # check if the mail have flush request
+            while True:
+                corr_id = self.flush.recv()
+                if corr_id is not None:
+                    bundle = self.SMTP_Bundles[corr_id]
+                    last_retry_timestamp = bundle.last_retry_timestamp
+                    rcpt = bundle.rcpt
+                    user_profile = self.registered_users.get(rcpt)
+
+                    self.send(bundle, user_profile=user_profile, direct=False)
+                    bundle.last_retry_timestamp = timestamp
+                else:
+                    break
 
             # run through every monitored emails
             for corr_id in self.SMTP_Bundles:
@@ -528,11 +621,7 @@ class MQHandler(ProxyHandler):
                 else:
                     timeout = user_profile.timeout * 2
 
-                # check if the mail have flush request
-                if corr_id in self.flush_queue:
-                    self.send(bundle, user_profile=user_profile, direct=False)
-                    bundle.last_retry_timestamp = timestamp
                 # check if time is up
-                elif timestamp - last_retry_timestamp > timeout:
+                if timestamp - last_retry_timestamp > timeout:
                     self.send(bundle, user_profile=user_profile, direct=True)
                     bundle.last_retry_timestamp = timestamp

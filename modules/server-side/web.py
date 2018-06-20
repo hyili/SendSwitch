@@ -23,9 +23,11 @@ def ManagementUI(config):
     registered_servers = config.kwargs["registered_servers"]
     email_domain = config.kwargs["email_domain"]
     host_domain = config.kwargs["host_domain"]
+    web_host = config.kwargs["web_host"]
+    web_port = config.kwargs["web_port"]
     timeout = config.kwargs["timeout"]
     output = config.kwargs["output"]
-    flush_queue = config.kwargs["flush_queue"]
+    flush = config.kwargs["flush"]
     ldap_settings = config.kwargs["ldap_settings"]
 
     # Background thread
@@ -39,8 +41,13 @@ def ManagementUI(config):
             # logging
             log = list()
 
-            while len(output.log) > 0:
-                log.append(output.log.pop(0))
+            # try to fetch all the output message
+            while True:
+                msg = output.recv()
+                if msg is not None:
+                    log.append(msg)
+                else:
+                    break
 
             socketio.emit("server_statistic", {
                 "data": data,
@@ -141,7 +148,6 @@ def ManagementUI(config):
         return str(registered_users.getAll())
 
     # TODO: permission check
-    # TODO: flush_queue duplicate
     @app.route("/flush", methods=["Post"])
     def flush_queuing_mail():
         account = request.form["account"]
@@ -151,7 +157,9 @@ def ManagementUI(config):
         user = registered_users.get(email)
         if user:
             try:
-                flush_queue.extend(user.get_queuing_list())
+                queuing_list = user.get_queuing_list()
+                for corr_id in queuing_list:
+                    flush.send(corr_id)
                 return "OK"
             except Exception as e:
                 return "Something wrong"
@@ -175,4 +183,4 @@ def ManagementUI(config):
 
     # TODO: session SSO
     socketio.start_background_task(target=background_thread)
-    socketio.run(app=app, host="0.0.0.0", port=60666)
+    socketio.run(app=app, host=web_host, port=web_port)

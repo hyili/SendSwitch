@@ -57,9 +57,20 @@ localhost:10026	inet	n		-		n		-		10		smtpd
 	-o smtpd_authorized_xforward_hosts=127.0.0.0/8
 ```
 #### note
-This module will default listen 8025 port for SMTPD input email
-And will default send email back to postfix on port 10026
-please change "hyili.idv.tw" to your server ip or domain
+copy config/example/example_server_config.py to config/server_config.py
+modify it to fit your environment
+then you can run it with command shown in sample usage above
+
+## client.py
+Module for handling user's incoming email get from MessageQueue
+#### sample usage
+```
+./client.py
+```
+#### note
+copy config/example/example_client_config.py to config/client_config.py
+modify it to fit your environment and add some customized processors
+then you can run it with command shown in sample usage above
 
 
 ## install.py
@@ -71,7 +82,6 @@ Setup for global MessageQueue setting
 #### note
 please change "hyili.idv.tw" to your server ip
 
-
 ## per_user_install.py
 Setup for per-user MessageQueue setting
 #### sample usage
@@ -79,24 +89,12 @@ Setup for per-user MessageQueue setting
 ./per_user_install.py [username]
 ```
 
-## recvmq.py
-Module which recv message from sendmq.py and then send back the result
-#### sample usage
-```
-./recvmq.py [exchange_id] [routing_key] [virtual_host] [username] [password]
-```
-#### note
-please change "{localhost}" to your server ip
 
 ## example_server.py
 Example SMTP server using Python
 
 ## example_client.py
 Example SMTP client for sending email using Python
-
-## send_loop.py
-Used for performance testing
-
 
 ## TODO
 - [x] Content Filter In Postfix

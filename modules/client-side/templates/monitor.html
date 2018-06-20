@@ -26,21 +26,25 @@
         var socket = io.connect("{{ url_for('monitor') }}");
 
         socket.on("connect", function() {
-            socket.emit("connect_event", {data: " [*] connected!"});
+            socket.emit("connect_event", {data: " [*] Connected!"});
             socket.emit("client_event", {data: " [*] Ready for chat!"});
-        })
+        });
+
+        socket.on("disconnect", function() {
+			var disconnect_msg = " [*] Disconnected.";
+            $("#board").html(disconnect_msg);
+            $("#info").append("<br>" + $("<div/>").text(disconnect_msg).html());
+		});
 
         socket.on("server_response", function(msg) {
             $("#info").append("<br>" + $("<div/>").text(msg.data).html());
         });
 
         socket.on("server_statistic", function(msg) {
-            console.log(msg);
-            $("#board").html(" [*] " + msg.data);
+			var connect_msg = " [*] Connected.";
+			$("#board").html(connect_msg + " <br> [*] " + msg.data);
             for (i = 0; i < msg.info.length; i++) {
                 var obj = JSON.parse(msg.info[i]);
-                //var escaped = $("<div/>").text(str.replace(/\\r/g, "\r").replace(/\\n/g, "\n").replace(/\\t/g, "\t")).html();
-                //$("#info").append("<br>" + escaped);
                 $("#email-json-viewer").append("<pre id=\"email-" + number_of_email.toString() + "\"></pre>");
                 $("#email-" + number_of_email.toString()).jsonViewer(obj, { collapsed: true, withQuotes: false });
                 number_of_email += 1;

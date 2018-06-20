@@ -6,12 +6,13 @@ from recvmq import receiver
 
 class Client_Controller():
     def __init__(self, config):
-        super().__init__()
         self.config = config
         self.thread = None
-        self.handler = None
-
+        self.processors = self.config.kwargs["processors"]
         self.output = self.config.kwargs["output"]
+
+        auth = self.config.kwargs["auth"]
+        self.receiver = receiver(vhost=auth["vhost"], user=auth["user"], password=auth["password"], processors=self.processors, output=self.output)
 
     def __del__(self):
         if self.thread is not None:
@@ -21,15 +22,16 @@ class Client_Controller():
                 pass
 
     def run(self):
-        auth = self.config.kwargs["auth"]
-        self.handler = receiver(vhost=auth["vhost"], user=auth["user"], password=auth["password"], output=self.output)
-        self.handler.run()
+        try:
+            self.receiver.run()
+        except Exception as e:
+            print(" [*] Something wrong during consumer setup. {0}".format(e))
 
     def start(self):
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
 
     def stop(self):
-        self.handler.close()
+        self.receiver.close()
         self.thread.join()
         self.thread = None

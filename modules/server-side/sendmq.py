@@ -8,9 +8,10 @@ import json
 import requests
 
 class sender():
-    def __init__(self, timeout=600, exchange_id="random", routing_keys=["random"], user_profile=None, host="localhost", silent_mode=False):
+    def __init__(self, timeout=600, exchange_id="random", routing_keys=["random"], user_profile=None, host="localhost", port=5672, silent_mode=False):
         # rabbitmq host
         self.host = host
+        self.port = port
         self.silent_mode = silent_mode
 
         # exchange_id & routing_keys
@@ -21,7 +22,7 @@ class sender():
         self.user_profile = user_profile
 
         # connection to rabbitmq & channel declaration
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, port=self.port))
         self.channel = self.connection.channel()
 
         # declare response queue
@@ -51,8 +52,8 @@ class sender():
         # close connection: after destruction
         try:
             self.connection.close()
-        except:
-            pass
+        except Exception as e:
+            self.Debug(e)
 
     def Debug(self, msg):
         if not self.silent_mode:
@@ -110,23 +111,3 @@ class sender():
             self.Debug(e)
 
         return corr_id
-
-# start sender
-if __name__ == "__main__":
-    args = sys.argv
-    try:
-        if len(args) == 1:
-            r = requests.get("http://{localhost}:60666/routingkey")
-            data = r.json()
-            S = sender(exchange_id="mail", routing_keys=[data["routing_key"]])
-            S.sendMsg("example_message")
-        elif len(args) >= 3:
-            S = sender(exchange_id=args[1], routing_keys=args[2:])
-            S.sendMsg("example_message")
-        else:
-            print("./sendmq.py [exchange_id] [routing_key] ...")
-    except KeyboardInterrupt:
-        print(" [*] Signal Catched. Quit.")
-    except Exception as e:
-        print(e)
-        print("./sendmq.py [exchange_id] [routing_key] ...")

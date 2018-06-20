@@ -43,6 +43,9 @@ class Users():
         except:
             return None
 
+    def getDefault(self):
+        return self.default_user_settings
+
     def delete(self, email=None):
         if self.get(email):
             self.registered_user_profile.pop(email)
