@@ -41,7 +41,6 @@ class receiver():
 
         # processors
         self.processors = processors
-        self.init_processor()
 
     def __del__(self):
         # close connection: after destruction
@@ -55,38 +54,27 @@ class receiver():
         if not self.silent_mode:
             print(" [*] {0}".format(msg))
 
+    # using user-defined processors to handle incoming email
     def email_handler(self, origin_msg, processors):
-        msg = origin_msg
-
+        msg = self.redirect_output(origin_msg)
         for processor in processors:
-            # temporarily save previous msg
-            temp_msg = msg
-
-            try:
-                # parse to processor
-                msg = processor(msg)
-
-                # TODO: check msg structure?
-                # if nothing comes back
-                if msg is None:
-                    self.Debug("Nothing comes back, returning previous result.")
-                    msg = temp_msg
-            except Exception as e:
-                self.Debug("Some error occurred during {0}... Error shows below, Skipped this function".format(processor.__name__))
-                self.Debug(e)
+            msg = processor.run(msg)
 
         return msg
 
-    # TODO: redirect to web output
+    # redirect to web output
     def redirect_output(self, origin_msg):
-        if self.output is not None:
-            json_msg = json.dumps(origin_msg)
-            self.output.send(json_msg)
+        temp_msg = origin_msg
 
-        return origin_msg
-
-    def init_processor(self):
-        self.processors.insert(0, self.redirect_output)
+        try:
+            if self.output is not None:
+                json_msg = json.dumps(origin_msg)
+                self.output.send(json_msg)
+        except Exception as e:
+            self.Debug("Error occurred during redirect_output.")
+            self.Debug(e)
+        finally:
+            return origin_msg
 
     def consume_request(self, channel, method, properties, body):
         try:
