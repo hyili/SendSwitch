@@ -1,39 +1,20 @@
 #!/usr/bin/env python3
 
+import sys
 import requests
+
+sys.path.append("../modules/share")
 from config_loader import Config
 from shared_queue import Shared_Queue
+from processor import Processor, Echo_Processor, Post_to_Slack_Processor
 
 ##### Create all your processors here #####
-def echo(msg):
-    print("echo here")
-
-    return msg
-
-def post_to_slack(msg):
-    print("post to slack here")
-    data = {
-        "text": str("```\n"+str(msg["header"]["subject"])+"\n```")
-    }
-
-    # post to slack incoming webhook
-    r = requests.post(
-        "{slack_incoming_webhook}",
-        json=data
-    )
-
-    print(r.status_code)
-    print(r.text)
-
-    return msg
-
-def post_to_webhook(msg):
-    pass
-    # post to outside webhook
-    # wait for incoming webhook
+processor_1 = Echo_Processor(description="This is echo processor sample.")
+processor_2 = Post_to_Slack_Processor(description="This is post to slack processor sample.")
+processor_2.setWebhook(["slack_webhook_list"])
 
 # Processors
-processors = [echo, post_to_slack]
+processors = [processor_1, processor_2]
 
 ##### Create all your processors above #####
 
