@@ -316,14 +316,22 @@ class MQHandler(ProxyHandler):
         # check if temp mail directory exists
         self.backup_enable = backup_enable
         if backup_enable:
+            self.init()
+            self.recovery()
+
+    def init(self):
+        try:
             if not os.path.isdir(self.temp_directory):
                 os.mkdir(self.temp_directory, 0o700)
             if not os.path.isdir(self.temp_envelope_directory):
                 os.mkdir(self.temp_envelope_directory, 0o700)
             if not os.path.isdir(self.temp_origin_directory):
                 os.mkdir(self.temp_origin_directory, 0o700)
-
-            self.recovery()
+        except Exception as e:
+            self.Debug("Something went wrong during initialization of backup directory. {0}".format(e))
+            # TODO: Disable backup mode when failed
+            self.Debug("Disable backup mode.")
+            self.backup_enable = False
 
     def finish(self, corr_id):
         bundle = self.SMTP_Bundles.pop(corr_id, None)
@@ -344,21 +352,32 @@ class MQHandler(ProxyHandler):
 
     # backup whole content of envelope
     def backup(self, bundle):
-        with open("{0}{1}".format(self.temp_envelope_directory, bundle.corr_id), "w") as fe:
-            # TODO: created_timestamp information will lost here
-            # Don't know if it will casue any problem
-            data = {}
-            data["corr_id"] = bundle.corr_id
-            data["envelope_mailfrom"] = bundle.envelope.mail_from
-            data["envelope_rcptto"] = bundle.envelope.rcpt_tos[0]
-            data["session_peer"] = bundle.session.peer
+        try:
+            with open("{0}{1}".format(self.temp_envelope_directory, bundle.corr_id), "w") as fe:
+                # TODO: created_timestamp information will lost here
+                # Don't know if it will casue any problem
+                data = {}
+                data["corr_id"] = bundle.corr_id
+                data["envelope_mailfrom"] = bundle.envelope.mail_from
+                data["envelope_rcptto"] = bundle.envelope.rcpt_tos[0]
+                data["session_peer"] = bundle.session.peer
 
-            raw_data = json.dumps(data)
-            fe.write(raw_data)
-            with open("{0}{1}".format(self.temp_origin_directory, bundle.corr_id), "wb") as fo:
-                # write original email content
-                fo.write(bundle.envelope.original_content)
-
+                raw_data = json.dumps(data)
+                fe.write(raw_data)
+                with open("{0}{1}".format(self.temp_origin_directory, bundle.corr_id), "wb") as fo:
+                    # write original email content
+                    fo.write(bundle.envelope.original_content)
+        except Exception as e:
+            self.Debug("Something went wrong during backup. {0}".format(e))
+            self.Debug("Reinitialize.")
+            try:
+                self.init()
+                self.backup(bundle)
+            except Exception as ee:
+                self.Debug("Failed again. {0}".format(ee))
+                # TODO: Disable backup mode when failed
+                self.Debug("Disable backup mode.")
+                self.backup_enable = False
 
     # recover whole content of envelope
     def recovery(self):
