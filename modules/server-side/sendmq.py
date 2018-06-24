@@ -7,6 +7,8 @@ import datetime
 import json
 import requests
 
+from protocols import Request
+
 class sender():
     def __init__(self, timeout=600, exchange_id="random", routing_keys=["random"], user_profile=None, host="localhost", port=5672, silent_mode=False):
         # rabbitmq host
@@ -65,46 +67,41 @@ class sender():
             self.channel.basic_publish(exchange=self.exchange_id,
                 routing_key=routing_key,
                 properties=pika.BasicProperties(
-                        reply_to=self.response_queue_id,
-                        correlation_id=corr_id,
-                        timestamp=int(timestamp),
-                        expiration=str(expire)
+                    reply_to=self.response_queue_id,
+                    correlation_id=corr_id,
+                    timestamp=int(timestamp),
+                    expiration=str(expire)
                 ),
                 body=msg
             )
 
             # Message Controller
             if not self.silent_mode:
-                self.Debug("Sent {0}: {1}".format(corr_id, msg))
+                self.Debug("Sent {0}: {1}".format(corr_id, request.get()))
 
     # Non-Blocking
     def sendMsg(self, msg, corr_id=None, result="Pending"):
-        # queue publish, send out msg
-        timestamp = time.time()
-
         # corr_id: message correlation id
         if corr_id is None:
             corr_id = str(uuid.uuid4())
 
+        # queue publish, send out msg
+        timestamp = time.time()
         # message will not actually be removed when times up
         # it will be removed until message head up the limit
         expire = (self.timeout if self.user_profile is None else self.user_profile.timeout) * 1000
-        data = {
-            "created": int(timestamp),
-            "expire": expire,
-            "data": msg,
-            "result": result
-        }
+        request = Request(timestamp=timestamp, expire=expire,
+            data=msg, result=result)
 
         try:
-            self._sendMsg(timestamp, expire, corr_id, data)
+            self._sendMsg(timestamp, expire, corr_id, request.get())
         except pika.exceptions.ConnectionClosed:
             try:
                 self.__init__(exchange_id=self.exchange_id,
                     routing_keys=self.routing_keys,
                     host=self.host,
                 silent_mode=self.silent_mode)
-                self._sendMsg(timestamp, expire, corr_id, data)
+                self._sendMsg(timestamp, expire, corr_id, request.get())
             except Exception as e:
                 self.Debug(e)
         except Exception as e:

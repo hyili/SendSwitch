@@ -7,6 +7,8 @@ import datetime
 import email
 import requests
 
+from protocols import Response
+
 class receiver():
     def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", port=5672, processors=list(), silent_mode=False, vhost="/", user="guest", password="guest", output=None):
         # credentials
@@ -86,20 +88,19 @@ class receiver():
 
             # TODO: email handler
             current_processors = list(self.processors)
-            ret = self.email_handler(data["data"], current_processors)
+            msg = self.email_handler(data["data"], current_processors)
 
             # resoponse message
-            msg = ret["result"]
             timestamp = time.time()
             # message will not actually be removed when times up
             # it will be removed until message head up the limit
             expire = self.timeout * 1000
-            response = {
-                "created": int(timestamp),
-                "expire": expire,
-                "data": data["data"],
-                "result": msg
-            }
+
+            # TODO: no need to response data now
+            #response = Response(timestamp=timestamp, expire=expire,
+            #    data=data["data"], reason=msg["reason"], result=msg["result"])
+            response = Response(timestamp=timestamp, expire=expire,
+                result=msg["result"])
 
             # send response backto default exchanger
             channel.basic_publish(exchange='',
@@ -109,11 +110,11 @@ class receiver():
                     timestamp=int(timestamp),
                     expiration=str(expire),
                 ),
-                body=json.dumps(response)
+                body=json.dumps(response.get())
             )
             # Message Controller
             if not self.silent_mode:
-                self.Debug("Sent {0} to {1}".format(msg, properties.reply_to))
+                self.Debug("Sent {0} to {1}".format(response.get(), properties.reply_to))
 
             channel.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as e:

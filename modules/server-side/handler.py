@@ -76,6 +76,7 @@ class SMTP_Bundle():
 
     def email_translator(self, msg):
         ret = dict()
+        # TODO: How to handle duplicate header
         p = email.message_from_bytes(msg)
 
         # Exteacting header
@@ -114,7 +115,7 @@ class SMTP_Bundle():
         ret["payload"] = self.extract_payload(p)
 
         # Appending result
-        ret["result"] = "OK"
+        ret["result"] = "Pending"
 
         # returning
         return ret
@@ -444,7 +445,7 @@ class MQHandler(ProxyHandler):
 
         # Send out message to MQ with corr_id
         # TODO: Maybe run_in_executor?
-        sender.sendMsg(bundle.data, corr_id=bundle.corr_id)
+        sender.sendMsg(bundle.data, corr_id=bundle.corr_id, result=bundle.data["result"])
 
         self.Debug("Send from: {0}, to: {1}".format(
             bundle.envelope.mail_from,
@@ -516,6 +517,7 @@ class MQHandler(ProxyHandler):
     # EXCEPTION
     # handle_exception(error)
 
+    # TODO: more action
     def apply_action(self, bundle, result, user_profile):
         # This handles the message that server send to itself
         if result["result"] == "Pending":
@@ -525,6 +527,10 @@ class MQHandler(ProxyHandler):
         elif result["result"] == "OK":
             bundle.status = 1
             SMTP_result = self.send_email(bundle, user_profile)
+        elif result["result"] == "Reject":
+            bundle.status = -1
+            SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
+                format(result["result"]))
         # Others drop
         else:
             bundle.status = -1
