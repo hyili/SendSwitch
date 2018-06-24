@@ -82,7 +82,6 @@ class SMTP_Bundle():
 
     def extract_payload(self, p):
         ret = ""
-
         for part in p.walk():
             if part.get_content_maintype() == "text":
                 charset = part.get_content_charset()
@@ -193,11 +192,7 @@ class ProxyHandler(Proxy):
             format(remote_server, remote_hostname,
             remote_port), header=bundle.corr_id)
 
-        # TODO: only bytes has splitlines
-        if isinstance(bundle.envelope.content, str):
-            content = bundle.envelope.original_content
-        else:
-            content = bundle.envelope.content
+        content = bundle.envelope.original_content
         lines = content.splitlines(keepends=True)
 
         index = 0
@@ -296,7 +291,7 @@ class ProxyHandler(Proxy):
         return result
 
 class MQHandler(ProxyHandler):
-    def __init__(self, config, local, remote, host="localhost", backup_enable=False, temp_directory="/tmp/PSF", silent_mode=False):
+    def __init__(self, config, local, remote, host="localhost", backup_enable=False, temp_directory="/tmp/PSF/", silent_mode=False):
         super().__init__(config, local, remote, silent_mode=silent_mode)
 
         # MQ connections
@@ -313,16 +308,22 @@ class MQHandler(ProxyHandler):
         self.flush = config.kwargs["flush"]
 
         # Backup & Recovery
+        # TODO: set directory permission
         self.temp_directory = temp_directory
+        self.temp_envelope_directory = "{0}envelope/".format(temp_directory)
+        self.temp_origin_directory = "{0}origin/".format(temp_directory)
 
         # check if temp mail directory exists
         self.backup_enable = backup_enable
         if backup_enable:
             if not os.path.isdir(self.temp_directory):
-                os.mkdir(self.temp_directory, 0o755)
-            else:
-                self.recovery()
-                pass
+                os.mkdir(self.temp_directory, 0o700)
+            if not os.path.isdir(self.temp_envelope_directory):
+                os.mkdir(self.temp_envelope_directory, 0o700)
+            if not os.path.isdir(self.temp_origin_directory):
+                os.mkdir(self.temp_origin_directory, 0o700)
+
+            self.recovery()
 
     def finish(self, corr_id):
         bundle = self.SMTP_Bundles.pop(corr_id, None)
@@ -331,7 +332,8 @@ class MQHandler(ProxyHandler):
         if self.backup_enable:
             try:
                 self.Debug("Remove from backup", header=corr_id)
-                os.remove("{0}/{1}".format(self.temp_directory, bundle.corr_id))
+                os.remove("{0}{1}".format(self.temp_envelope_directory, bundle.corr_id))
+                os.remove("{0}{1}".format(self.temp_origin_directory, bundle.corr_id))
             except Exception as e:
                 self.Debug("Remove failed. Reason: {0}".format(e), header=corr_id)
 
@@ -341,27 +343,30 @@ class MQHandler(ProxyHandler):
             user_profile.remove_queuing(corr_id)
 
     # backup whole content of envelope
-    def backup(self, bundle, mode="a"):
-        with open("{0}/{1}".format(self.temp_directory, bundle.corr_id), mode) as f:
+    def backup(self, bundle):
+        with open("{0}{1}".format(self.temp_envelope_directory, bundle.corr_id), "w") as fe:
             # TODO: created_timestamp information will lost here
             # Don't know if it will casue any problem
             data = {}
             data["corr_id"] = bundle.corr_id
             data["envelope_mailfrom"] = bundle.envelope.mail_from
             data["envelope_rcptto"] = bundle.envelope.rcpt_tos[0]
-            data["envelope_content"] = bundle.envelope.content
             data["session_peer"] = bundle.session.peer
 
             raw_data = json.dumps(data)
-            f.write(raw_data)
+            fe.write(raw_data)
+            with open("{0}{1}".format(self.temp_origin_directory, bundle.corr_id), "wb") as fo:
+                # write original email content
+                fo.write(bundle.envelope.original_content)
+
 
     # recover whole content of envelope
     def recovery(self):
-        filenames = os.listdir(self.temp_directory)
+        filenames = os.listdir(self.temp_envelope_directory)
         for filename in filenames:
-            with open("{0}/{1}".format(self.temp_directory, filename), "r") as f:
+            with open("{0}{1}".format(self.temp_envelope_directory, filename), "r") as fe:
                 try:
-                    raw_data = f.read()
+                    raw_data = fe.read()
                     data = json.loads(raw_data)
                     session = Session(None)
                     envelope = Envelope()
@@ -369,7 +374,9 @@ class MQHandler(ProxyHandler):
                     session.peer = data["session_peer"]
                     envelope.mail_from = data["envelope_mailfrom"]
                     envelope.rcpt_tos = [data["envelope_rcptto"]]
-                    envelope.content = data["envelope_content"]
+                    with open("{0}{1}".format(self.temp_origin_directory, filename), "rb") as fo:
+                        # read original email content
+                        envelope.original_content = fo.read()
 
                     bundle = SMTP_Bundle(data["corr_id"],
                         data["envelope_rcptto"],
