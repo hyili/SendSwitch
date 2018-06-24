@@ -58,6 +58,28 @@ class SMTP_Bundle():
 
         self.status = 0
 
+    def extract_header(self, p):
+        ret = dict()
+        for key in set(p.keys()):
+            # get all the headers which named key
+            value = p.get_all(key, None)
+            # init header part
+            ret[key.lower()] = list()
+            for element in value:
+                pair = decode_header(element)
+                content = ""
+                for (_content, _charset) in pair:
+                    if _charset:
+                        content = "{0} {1}".format(content, _content.decode(_charset))
+                    else:
+                        if isinstance(_content, (bytes, bytearray)):
+                            content = "{0} {1}".format(content, _content.decode())
+                        else:
+                            content = "{0} {1}".format(content, _content)
+                ret[key.lower()].insert(0, content)
+
+        return ret
+
     def extract_payload(self, p):
         ret = ""
 
@@ -76,40 +98,10 @@ class SMTP_Bundle():
 
     def email_translator(self, msg):
         ret = dict()
-        # TODO: How to handle duplicate header
         p = email.message_from_bytes(msg)
 
-        # Exteacting header
-        #self.Debug("header:")
-        ret["header"] = dict()
-        for pp_key in set(p.keys()):
-            pp_value = p.get_all(pp_key, None)
-            # concat 2 header.from into 1
-            if isinstance(pp_value, list):
-                for element in pp_value:
-                    pair = decode_header(element)
-                    content = ""
-                    for (_content, _charset) in pair:
-                        if _charset:
-                            content = "{0} {1}".format(content, _content.decode(_charset))
-                        else:
-                            if isinstance(_content, (bytes, bytearray)):
-                                content = "{0} {1}".format(content, _content.decode())
-                            else:
-                                content = "{0} {1}".format(content, _content)
-                    ret["header"][pp_key.lower()] = content
-            else:
-                pair = decode_header(pp_value)
-                content = ""
-                for (_content, _charset) in pair:
-                    if _charset:
-                        content = "{0} {1}".format(content, _content.decode(_charset))
-                    else:
-                        if isinstance(_content, (bytes, bytearray)):
-                            content = "{0} {1}".format(content, _content.decode())
-                        else:
-                            content = "{0} {1}".format(content, _content)
-                ret["header"][pp_key.lower()] = content
+        # Extracting header
+        ret["header"] = self.extract_header(p)
 
         # Extracting payload
         ret["payload"] = self.extract_payload(p)
