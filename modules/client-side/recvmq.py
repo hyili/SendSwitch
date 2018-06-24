@@ -117,7 +117,9 @@ class receiver():
 
             channel.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as e:
-            channel.basic_nack(delivery_tag=method.delivery_tag)
+            # TODO: when error occurred, this may cause infinite loop
+            # channel.basic_nack(delivery_tag=method.delivery_tag)
+            channel.basic_ack(delivery_tag=method.delivery_tag)
             self.Debug(e)
 
     def run(self):

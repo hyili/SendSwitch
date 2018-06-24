@@ -2,6 +2,7 @@
 
 import sys
 
+sys.path.append("../modules/share")
 from config_loader import Config
 from shared_queue import Shared_Queue
 import user_profile
@@ -9,14 +10,13 @@ import server_profile
 
 # Server setup
 servers = server_profile.Servers()
-servers.add(id="Message-Queue-node", hostname="localhost", port=8025)
+servers.add(id="Message-Queue-node", hostname="localhost", port=8025, dest=False)
 servers.add(id="Amavisd-new-node", hostname="localhost", port=8026)
-servers.add(id="CF-2-node", hostname="localhost", port=8027)
-servers.add(id="Postfix", hostname="localhost", port=10026)
-servers.add(id="Noop", hostname="localhost", port=10000)
+servers.add(id="Postfix", hostname="localhost", port=10026, source=False)
+servers.add(id="Noop", hostname="localhost", port=10000, source=False)
 
 # Check servers
-for id in servers.getAll():
+for id in servers.getList():
     server = servers.get(id)
     print(" [*] Server Settings OK: id: \"{0}\", hostname: \"{1}\", port: {2}".
         format(server.id, server.hostname, server.port))
@@ -24,8 +24,7 @@ for id in servers.getAll():
 # Server next hop setup
 default_user_settings = {
     "Message-Queue-node": "Postfix",
-    "Amavisd-new-node": "CF-2-node",
-    "CF-2-node": "Postfix",
+    "Amavisd-new-node": "Noop"
 }
 
 # Check settings are correct

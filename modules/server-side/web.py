@@ -71,7 +71,8 @@ def ManagementUI(config):
         if domain == email_domain:
             if auth.ldap_authenticate(account, passwd, ldap_settings):
                 return render_template("manage.html",
-                    account=account, domain=domain), 200
+                    account=account, domain=domain, src_servers=registered_servers.getSourceList(),
+                    dst_servers=registered_servers.getDestList()), 200
             else:
                 return "Error!"
         else:
@@ -145,7 +146,7 @@ def ManagementUI(config):
 
     @app.route("/show", methods=["Post"])
     def show_user():
-        return str(registered_users.getAll())
+        return str(registered_users.getList())
 
     # TODO: permission check
     @app.route("/flush", methods=["Post"])

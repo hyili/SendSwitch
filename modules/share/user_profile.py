@@ -50,5 +50,5 @@ class Users():
         if self.get(email):
             self.registered_user_profile.pop(email)
 
-    def getAll(self):
+    def getList(self):
         return list(self.registered_user_profile.keys())

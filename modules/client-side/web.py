@@ -14,6 +14,7 @@ def ManagementUI(config):
 
     web_host = config.kwargs["web_host"]
     web_port = config.kwargs["web_port"]
+    processors = config.kwargs["processors"]
     output = config.kwargs["output"]
 
     # Background thread
