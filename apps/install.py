@@ -8,13 +8,16 @@ import json
 import requests
 
 class install():
-    def __init__(self, username="guest", host="localhost", silent_mode=False):
+    def __init__(self, username="guest", email_domain="localhost", host="localhost", port=5672, silent_mode=False):
         # rabbitmq host
         self.host = host
+        self.port = port
+        self.username = username
+        self.email_domain = email_domain
         self.silent_mode = silent_mode
 
         # connection to rabbitmq & channel declaration
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, port=self.port))
         self.channel = self.connection.channel()
 
         # declare exchange
@@ -54,7 +57,7 @@ class install():
         )
 
         # declare queue if there is no current queue exists
-        self.channel.queue_declare(queue=username,
+        self.channel.queue_declare(queue=self.username,
             passive=False,
             durable=True,
             arguments={
@@ -65,17 +68,13 @@ class install():
 
         self.channel.queue_declare(queue="return",
             passive=False,
-            durable=True,
-            arguments={
-                "x-dead-letter-exchange": "return",
-                "x-dead-letter-routing-key": "return"
-            }
+            durable=True
         )
 
         # set queue bindings (can binds many keys to one queue)
         self.channel.queue_bind(exchange="mail",
-            queue=username,
-            routing_key="mail.{0}@hyili.idv.tw".format(username)
+            queue=self.username,
+            routing_key="mail.{0}@{1}".format(self.username, self.email_domain)
         )
 
         self.channel.queue_bind(exchange="return",
@@ -99,8 +98,11 @@ if __name__ == "__main__":
     try:
         args = sys.argv
         if len(args) == 2:
-            install = install(username=args[1])
+            arg = args[1].split("@")
+            username = arg[0]
+            email_domain = arg[1]
+            install = install(username=username, email_domain=email_domain)
         else:
-            print("./install.py [username]")
+            print("./install.py [username]@[domain]")
     except KeyboardInterrupt:
         print(" [*] Signal Catched. Quit.")

@@ -32,10 +32,6 @@ class sender():
         # using current connection
         self.response = self.channel.queue_declare(queue="return",
             durable=True,
-            arguments={
-                "x-dead-letter-exchange": "return",
-                "x-dead-letter-routing-key": "return"
-            }
         )
         self.response_queue_id = self.response.method.queue
 

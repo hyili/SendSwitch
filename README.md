@@ -1,39 +1,27 @@
 # Postfix_Spammer_Filter
 A content filter function using MessageQueue with RPC implementation.
 
-## contentfilter.py (Deprecated)
-content filter in postfix
-#### sample usage
-in master.cf
+## Server-Side Envionment
+#### Python packages
+Required packages are shown in requirements file.
+use following command to install them
 ```
-smtp      inet  n       -       n       -       -       smtpd
-	-o content_filter=filter:dummy
-
-submission inet n       -       n       -       -       smtpd
-	-o syslog_name=postfix/submission
-
-filter		unix	-	n	n	-	1	pipe
-	flags=Rq user=hyili null_sender=
-	argv=/home/hyili/Postfix_Spammer_Filter/apps/contentfilter.py -f ${sender} -- ${recipient}
+pip3 install -r requirements
 ```
-
-## apiserver.py (Deprecated)
-Token server implementation using flask
-#### sample usage
+#### RabbitMQ
+Install RabbitMQ on your system, and you can use sample rabbitmq configuration in config/ to setup.
+Make sure your server can connect to RabbitMQ server.
+Then run following command
 ```
-./apiserver.py
+rabbitmq-plugins enable rabbitmq_management
+rabbitmq-plugins enable rabbitmq_auth_backend_ldap
+rabbitmq-plugins enable rabbitmq_shovel
+rabbitmq-plugins enable rabbitmq_shovel_management
 ```
-#### note
-Please change "{localhost}" to your server ip
-Used with set_key.sh and get_key.sh
-
-## server.py
-Module for handling SMTP/SMTPD/MessageQueue message interaction
-#### sample usage
-```
-./server.py
-```
-in master.cf
+Finally, using install.py and per_user_install.py to setup your queue routing
+#### Postfix
+Install Postfix on your system, and modify the following
+- in master.cf
 ```
 smtp      inet  n       -       n       -       -       smtpd
 	-o content_filter=scan:127.0.0.1:8025
@@ -56,93 +44,41 @@ localhost:10026	inet	n		-		n		-		10		smtpd
 	-o mynetworks=127.0.0.0/8
 	-o smtpd_authorized_xforward_hosts=127.0.0.0/8
 ```
-#### note
-copy config/example/example_server_config.py to config/server_config.py
-modify it to fit your environment
-then you can run it with command shown in sample usage above
+#### apps/server.py
+- Module for handling SMTP/SMTPD/MessageQueue message interaction
+- in config/server_config.py
+	- copy config/example/example_server_config.py to config/server_config.py modify it to fit your environment
+- sample usage
+```
+./server.py
+```
 
-## client.py
-Module for handling user's incoming email get from MessageQueue
-#### sample usage
+## Client-Side Environment
+#### apps/client.py
+- Module for handling user's incoming email get from MessageQueue
+- in config/client_config.py
+	- copy config/example/example_client_config.py to config/client_config.py modify it to fit your environment and add some customized processors
+- sample usage
 ```
 ./client.py
 ```
-#### note
-copy config/example/example_client_config.py to config/client_config.py
-modify it to fit your environment and add some customized processors
-then you can run it with command shown in sample usage above
 
-
-## install.py
-Setup for global MessageQueue setting
-#### sample usage
+## Other Scripts
+#### apps/install.py
+- Setup for global MessageQueue setting
+- sample usage
 ```
 ./install.py
 ```
-#### note
-please change "hyili.idv.tw" to your server ip
-
-## per_user_install.py
-Setup for per-user MessageQueue setting
-#### sample usage
+#### apps/per_user_install.py
+- Setup for per-user MessageQueue setting
+- sample usage
 ```
 ./per_user_install.py [username]
 ```
 
+#### tests/example_server.py
+- Example SMTP server using Python
 
-## example_server.py
-Example SMTP server using Python
-
-## example_client.py
-Example SMTP client for sending email using Python
-
-## TODO
-- [x] Content Filter In Postfix
-	- [x] Basic Content Filter Implementation
-	- [x] Advanced Content Filter Implementation
-		- [x] SMTP support
-		- [x] SMTPD support
-- [x] Request Queue And Response Queue Management
-	- [x] Non-blocking Send
-	- [x] Non-blocking Receive
-	- [x] User-Space Queue Setup
-	- [x] Dead Letter Exchange (DLX)
-	- [x] Alternate Exchange (AE)
-- [x] Server with Send Function
-- [x] Client with Recv Function
-- [x] RPC Architecture
-- [x] Exchange & Routing
-- [x] Client Email Parser Example
-- [x] System Architecture
-- [x] Security
-	- [x] Authentication
-		- [x] LDAP backend
-	- [x] Authorization
-		- [x] MQ Permission Setup
-	- [x] API For Getting Routing Key
-		- [x] Demo version
-- [ ] Debug & Logging
-	- [x] Debug
-	- [ ] Logging
-- [x] Statistical Module
-- [x] Client Example
-	- [x] recvmq.py sample usage
-- [ ] Fault Tolerance
-	- [x] Backup
-	- [x] Recover
-	- [ ] Failed to Send Email
-- [x] Router
-	- [x] Server Profile
-	- [x] User Profile
-- [ ] Management UI
-	- [ ] Login page
-		- [ ] Session
-		- [ ] SSO
-		- [ ] https
-	- [ ] Management page
-		- [ ] Proper UI
-		- [ ] Control API
-			- [x] Activate Button
-			- [x] Deactivate Button
-			- [ ] Routing Button
-			- [ ] Logged out Button
+#### tests/example_client.py
+- Example SMTP client for sending email using Python

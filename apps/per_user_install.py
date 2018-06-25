@@ -8,16 +8,21 @@ import json
 import requests
 
 class per_user_install():
-    def __init__(self, host="localhost", silent_mode=False, vhost="/", user="guest", password="guest"):
+    def __init__(self, host="localhost", port=5672, web_port=15672, silent_mode=False, vhost="/", admin_user="guest", admin_password="guest"):
         # rabbitmq host
         self.host = host
+        self.port = port
+        self.web_port = web_port
+        self.vhost = vhost
+        self.admin_user = admin_user
+        self.admin_password = admin_password
         self.silent_mode = silent_mode
 
         # Create new vhost
         try:
-            r = requests.put("http://localhost:15672/api/vhosts/{0}".format(vhost),
+            r = requests.put("http://{0}:{1}/api/vhosts/{2}".format(self.host, self.web_port, self.vhost),
             headers={"Content-Type": "application/json"},
-            auth=requests.auth.HTTPBasicAuth(user, password))
+            auth=requests.auth.HTTPBasicAuth(self.admin_user, self.admin_password))
             self.Debug(r)
         except Exception as e:
             self.Debug(e)
@@ -25,22 +30,22 @@ class per_user_install():
 
         # Giving full control to user guest
         try:
-            r = requests.put("http://localhost:15672/api/permissions/{0}/guest".format(vhost),
+            r = requests.put("http://{0}:{1}/api/permissions/{2}/guest".format(self.host, self.web_port, self.vhost),
             json={
                 "configure": ".*",
                 "write": ".*",
                 "read": ".*"
-            }, auth=requests.auth.HTTPBasicAuth(user, password))
+            }, auth=requests.auth.HTTPBasicAuth(self.admin_user, self.admin_password))
             self.Debug(r)
         except Exception as e:
             self.Debug(e)
             quit()
 
         # credentials
-        self.credentials = pika.PlainCredentials(user, password)
+        self.credentials = pika.PlainCredentials(self.admin_user, self.admin_password)
 
         # connection to rabbitmq & channel declaration
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, virtual_host=vhost, credentials=self.credentials))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, port=self.port, virtual_host=self.vhost, credentials=self.credentials))
         self.channel = self.connection.channel()
 
         # DLX
@@ -49,17 +54,13 @@ class per_user_install():
             passive=False,
             durable=True)
 
-        # declare queue if there is no current queue exists
-        self.channel.queue_declare(queue="mail",
+        self.channel.queue_declare(queue="return",
             passive=False,
-            durable=True,
-            arguments={
-                "x-dead-letter-exchange": "return",
-                "x-dead-letter-routing-key": "return"
-            }
+            durable=True
         )
 
-        self.channel.queue_declare(queue="return",
+        # declare queue if there is no current queue exists
+        self.channel.queue_declare(queue="mail",
             passive=False,
             durable=True,
             arguments={
@@ -73,12 +74,14 @@ class per_user_install():
             routing_key="return"
         )
 
+        time.sleep(5)
+
         # install shovel
         try:
-            r = requests.put("http://localhost:15672/api/parameters/shovel/%2F/{0}-mail".format(vhost),
+            r = requests.put("http://{0}:{1}/api/parameters/shovel/%2F/{2}-mail".format(self.host, self.web_port, self.vhost),
             json={
                 "component": "shovel",
-                "name": "{0}-mail".format(vhost),
+                "name": "{0}-mail".format(self.vhost),
                 "vhost": "/",
                 "value": {
                     "prefetch-count": 1,
@@ -87,20 +90,20 @@ class per_user_install():
                     "add-forward-headers": False,
                     "delete-after": "never",
                     "src-uri": "amqp://localhost",
-                    "src-queue": vhost,
-                    "dest-uri": "amqp://{0}:{1}@localhost/{2}".format(user, password, vhost),
+                    "src-queue": self.vhost,
+                    "dest-uri": "amqp://{0}:{1}@localhost/{2}".format(self.admin_user, self.admin_password, self.vhost),
                     "dest-queue": "mail"
                 }
-            }, auth=requests.auth.HTTPBasicAuth(user, password))
+            }, auth=requests.auth.HTTPBasicAuth(admin_user, admin_password))
             self.Debug(r)
         except Exception as e:
             self.Debug(e)
             quit()
 
         try:
-            r = requests.put("http://localhost:15672/api/parameters/shovel/%2F/{0}-return".format(vhost), json={
+            r = requests.put("http://{0}:{1}/api/parameters/shovel/%2F/{2}-return".format(self.host, self.web_port, self.vhost), json={
                 "component": "shovel",
-                "name": "{0}-return".format(vhost),
+                "name": "{0}-return".format(self.vhost),
                 "vhost": "/",
                 "value": {
                     "prefetch-count": 1,
@@ -108,12 +111,12 @@ class per_user_install():
                     "ack-mode": "on-confirm",
                     "add-forward-headers": False,
                     "delete-after": "never",
-                    "src-uri": "amqp://{0}:{1}@localhost/{2}".format(user, password, vhost),
+                    "src-uri": "amqp://{0}:{1}@localhost/{2}".format(self.admin_user, self.admin_password, self.vhost),
                     "src-queue": "return",
                     "dest-uri": "amqp://localhost",
                     "dest-queue": "return"
                 }
-            }, auth=requests.auth.HTTPBasicAuth(user, password))
+            }, auth=requests.auth.HTTPBasicAuth(admin_user, admin_password))
             self.Debug(r)
         except Exception as e:
             self.Debug(e)
@@ -133,9 +136,9 @@ class per_user_install():
 if __name__ == "__main__":
     try:
         args = sys.argv
-        if len(args) == 2:
-            install = per_user_install(vhost=args[1])
+        if len(args) == 3:
+            install = per_user_install(host=args[1], vhost=args[2])
         else:
-            print("./per_user_install.py [username]")
+            print("./per_user_install.py [rabbitmq_host] [vhost]")
     except KeyboardInterrupt:
         print(" [*] Signal Catched. Quit.")
