@@ -313,11 +313,17 @@ class MQHandler(ProxyHandler):
         self.MQ_host = config.kwargs["MQ_host"]
         self.MQ_port = config.kwargs["MQ_port"]
 
+        # Subtask list
+        self.subtasks = list()
+
         # workers
         self.max_workers = config.kwargs["max_workers"]
 
         # flush queue
         self.flush = config.kwargs["flush"]
+
+        # retry interval
+        self.retry_interval = config.kwargs["retry_interval"]
 
         # Backup & Recovery
         # TODO: set directory permission
@@ -330,6 +336,10 @@ class MQHandler(ProxyHandler):
         if backup_enable:
             self.init()
             self.recovery()
+
+    def __del__(self):
+        for subtask in self.subtasks:
+            subtask.cancel()
 
     def init(self):
         try:
@@ -464,23 +474,36 @@ class MQHandler(ProxyHandler):
     def _send(self, rcpt, bundle, user_profile, exchange_id, routing_key):
         # Check if the per user connection to MQ is established
         if rcpt not in self.MQ_Bundles:
-            sender = sendmq.sender(exchange_id=exchange_id,
-                routing_keys=[routing_key],
-                user_profile=user_profile,
-                host=self.MQ_host,
-                port=self.MQ_port,
-                silent_mode=True)
-            self.MQ_Bundles[rcpt] = MQ_Bundle(rcpt, sender)
+            try:
+                sender = sendmq.sender(exchange_id=exchange_id,
+                    routing_keys=[routing_key],
+                    user_profile=user_profile,
+                    host=self.MQ_host,
+                    port=self.MQ_port,
+                    silent_mode=True)
+                self.MQ_Bundles[rcpt] = MQ_Bundle(rcpt, sender)
+            except Exception as e:
+                # Wait for timeout to resend
+                self.Debug("Error occurred during sender setup. {0}".format(e))
+                return
+
         sender = self.MQ_Bundles[rcpt].sender
 
         # Send out message to MQ with corr_id
         # TODO: Maybe run_in_executor?
-        sender.sendMsg(bundle.data, corr_id=bundle.corr_id, result=bundle.data["result"])
+        ret = sender.sendMsg(bundle.data, corr_id=bundle.corr_id, result=bundle.data["result"])
 
-        self.Debug("Send from: {0}, to: {1}".format(
-            bundle.envelope.mail_from,
-            bundle.rcpt
-        ), header=bundle.corr_id)
+        if ret:
+            self.Debug("Send from: {0}, to: {1}".format(
+                bundle.envelope.mail_from,
+                bundle.rcpt
+            ), header=bundle.corr_id)
+        else:
+            # Wait for timeout to resend
+            self.Debug("Failed to send message from: {0}, to: {1}".format(
+                bundle.envelope.mail_from,
+                bundle.rcpt
+            ), header=bundle.corr_id)
 
     # http://aiosmtpd.readthedocs.io/en/latest/aiosmtpd/docs/handlers.html#handler-hooks
     # HELO Command
@@ -572,15 +595,9 @@ class MQHandler(ProxyHandler):
 
         return
 
-    async def returnmq_mod(self):
-        self.handler = returnmq.result_handler(silent_mode=True)
-        loop = asyncio.get_event_loop()
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
-
+    # returnmq executor
+    async def returnmq_executor(self, loop, executor):
         while True:
-            # Subtask list
-            subtasks = list()
-
             if len(self.SMTP_Bundles) > 0:
                 # Fetching result from MQ
                 self.handler.checkResult()
@@ -614,15 +631,36 @@ class MQHandler(ProxyHandler):
                     # TODO: maybe grouping by each users?
                     # https://docs.python.org/3/library/asyncio-dev.html#handle-blocking-functions-correctly
                     task = loop.run_in_executor(None, self.apply_action, bundle, result, user_profile)
-                    subtasks.append(task)
+                    self.subtasks.append(task)
 
                 #Execute the subtask
                 # Though it can asynchoronously execute the task
                 # But it will still block until all tsaks done
-                await asyncio.gather(*subtasks)
+                await asyncio.gather(*self.subtasks)
 
             # run every 10*random secs
             await asyncio.sleep(random.random()*10)
+
+    async def returnmq_mod(self):
+        loop = asyncio.get_event_loop()
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
+
+        while True:
+            try:
+                self.handler = returnmq.result_handler(silent_mode=True)
+                await self.returnmq_executor(loop, executor)
+                break
+            except asyncio.CancelledError:
+                for subtask in self.subtasks:
+                    subtask.cancel()
+                break
+            except Exception as e:
+                for subtask in self.subtasks:
+                    subtask.cancel()
+                self.Debug("Error occurred during result_handler execution. {0}".format(e))
+                self.Debug("Wait for restarting.")
+                await asyncio.sleep(self.retry_interval)
+                self.Debug("Restarting.")
 
     async def timeout_mod(self):
         while True:

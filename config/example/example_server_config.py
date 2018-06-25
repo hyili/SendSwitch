@@ -64,10 +64,12 @@ config = Config(registered_servers=servers,
     web_host="localhost",
     web_port=60666,
     timeout=60,
+    retry_interval=20,
     output=output,
     temp_directory="/tmp/PSF/",
     silent_mode=False,
     backup_enable=True,
     flush=flush,
     ldap_settings=ldap_settings,
-    max_workers=4)
+    max_workers=4
+)

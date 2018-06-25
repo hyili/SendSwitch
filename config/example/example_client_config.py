@@ -36,4 +36,7 @@ config = Config(auth={"vhost": "vhost", "user": "user", "password": "password"},
     MQ_port=5672,
     web_host="localhost",
     web_port=61666,
-    output=output)
+    retry_interval=20,
+    output=output,
+    silent_mode=False
+)

@@ -10,13 +10,19 @@ import requests
 from protocols import Response
 
 class receiver():
-    def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", port=5672, processors=list(), silent_mode=False, vhost="/", user="guest", password="guest", output=None):
+    def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", port=5672,
+        processors=list(), silent_mode=False, vhost="/", credentials=None, user="guest", password="guest", output=None):
+
         # credentials
-        self.credentials = pika.PlainCredentials(user, password)
+        if credentials is None:
+            self.credentials = pika.PlainCredentials(user, password)
+        else:
+            self.credentials = credentials
 
         # rabbitmq host
         self.host = host
         self.port = port
+        self.vhost = vhost
         self.silent_mode = silent_mode
 
         # exchange_id & routing_key
@@ -50,7 +56,7 @@ class receiver():
             self.channel.stop_consuming()
             self.connection.close()
         except Exception as e:
-            self.Debug(e)
+            pass
 
     def Debug(self, msg):
         if not self.silent_mode:
@@ -123,15 +129,36 @@ class receiver():
             channel.basic_ack(delivery_tag=method.delivery_tag)
             self.Debug(e)
 
+    def reinit(self):
+        self.__init__(timeout=self.timeout,
+            exchange_id=self.exchange_id,
+            routing_key=self.routing_key,
+            host=self.host,
+            port=self.port,
+            processors=self.processors,
+            silent_mode=self.silent_mode,
+            vhost=self.vhost,
+            credentials=self.credentials,
+            output=self.output
+        )
+
     def run(self):
-        # wait for request, and do not allow other consumers on current queue
-        self.channel.basic_consume(self.consume_request,
+        try:
+            # wait for request, and do not allow other consumers on current queue
+            self.channel.basic_consume(self.consume_request,
                 queue=self.request_queue_id)
 
-        # dispatch consume_request using start_consuming(), iteratively
-        # http://pika.readthedocs.io/en/0.10.0/modules/adapters/blocking.html
-        self.Debug("Waiting for messages. To exit press CTRL+C")
-        self.channel.start_consuming()
+            # dispatch consume_request using start_consuming(), iteratively
+            # http://pika.readthedocs.io/en/0.10.0/modules/adapters/blocking.html
+            self.channel.start_consuming()
+        except pika.exceptions.ConnectionClosed:
+            self.Debug("Connection to rabbitmq closed, trying to reconnect.")
+            try:
+                self.reinit()
+            except Exception as e:
+                raise Exception("Failed to reconnect. {0}".format(e))
+        except Exception as e:
+            raise Exception("Error occurred. {0}".format(e))
 
     def close(self):
         self.Debug("Waiting for consumers to close.")

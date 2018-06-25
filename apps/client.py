@@ -14,11 +14,14 @@ import client_config
 
 # Config setup
 config = client_config.config
+silent_mode = config.kwargs["silent_mode"]
 
 # Controller setup
-Controller = Client_Controller(config)
+Controller = Client_Controller(config, silent_mode)
 
 try:
+    print(" [*] Waiting for messages. To exit press CTRL+C")
+
     Controller.start()
     web.ManagementUI(config)
 

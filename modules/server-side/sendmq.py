@@ -57,6 +57,13 @@ class sender():
         if not self.silent_mode:
             print(" [*] {0}".format(msg))
 
+    def reinit(self):
+        self.__init__(exchange_id=self.exchange_id,
+            routing_keys=self.routing_keys,
+            host=self.host,
+            silent_mode=self.silent_mode
+        )
+
     def _sendMsg(self, timestamp, expire, corr_id, data):
         for routing_key in self.routing_keys:
             msg = json.dumps(data)
@@ -92,15 +99,15 @@ class sender():
         try:
             self._sendMsg(timestamp, expire, corr_id, request.get())
         except pika.exceptions.ConnectionClosed:
+            self.Debug("Connection to rabbitmq closed, trying to reconnect.")
             try:
-                self.__init__(exchange_id=self.exchange_id,
-                    routing_keys=self.routing_keys,
-                    host=self.host,
-                silent_mode=self.silent_mode)
+                self.reinit()
                 self._sendMsg(timestamp, expire, corr_id, request.get())
             except Exception as e:
-                self.Debug(e)
+                self.Debug("Failed to reconnect. {0}".format(e))
+                return None
         except Exception as e:
-            self.Debug(e)
+            self.Debug("Error occurred. {0}".format(e))
+            return None
 
         return corr_id

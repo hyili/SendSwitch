@@ -32,10 +32,24 @@ class result_handler():
         self.connection.process_data_events()
 
     # TODO: destructor
+    def __del__(self):
+        # close connection: after destruction
+        try:
+            self.channel.stop_consuming()
+            self.connection.close()
+        except Exception as e:
+            pass
 
     def Debug(self, msg):
         if not self.silent_mode:
             print(" [*] {0}".format(msg))
+
+    def reinit(self):
+        self.__init__(exchange_id=self.exchange_id,
+            routing_keys=self.routing_keys,
+            host=self.host,
+            silent_mode=self.silent_mode
+        )
 
     def consume_response(self, channel, method, properties, body):
         if not self.silent_mode:
@@ -50,15 +64,12 @@ class result_handler():
             self.connection.process_data_events()
         except pika.exceptions.ConnectionClosed:
             try:
-                self.__init__(exchange_id=self.exchange_id,
-                    routing_keys=self.routing_keys,
-                    host=self.host,
-                    silent_mode=self.silent_mode)
+                self.reinit()
                 self.connection.process_data_events()
             except Exception as e:
-                self.Debug(e)
+                raise Exception("Failed to reconnect. {0}".format(e))
         except Exception as e:
-            self.Debug(e)
+            raise Exception("Error occurred. {0}".format(e))
 
     def getCurrentId(self):
         return self.result.keys()
