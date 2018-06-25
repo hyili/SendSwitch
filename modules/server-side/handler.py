@@ -69,13 +69,20 @@ class SMTP_Bundle():
                 pair = decode_header(element)
                 content = ""
                 for (_content, _charset) in pair:
-                    if _charset:
-                        content = "{0} {1}".format(content, _content.decode(_charset))
-                    else:
+                    try:
+                        if _charset:
+                            content = "{0} {1}".format(content, _content.decode(_charset))
+                        else:
+                            if isinstance(_content, (bytes, bytearray)):
+                                content = "{0} {1}".format(content, _content.decode())
+                            else:
+                                content = "{0} {1}".format(content, _content)
+                    except:
                         if isinstance(_content, (bytes, bytearray)):
                             content = "{0} {1}".format(content, _content.decode())
                         else:
                             content = "{0} {1}".format(content, _content)
+
                 ret[key.lower()].insert(0, content)
 
         return ret
@@ -85,12 +92,17 @@ class SMTP_Bundle():
         for part in p.walk():
             if part.get_content_maintype() == "text":
                 charset = part.get_content_charset()
-                if charset is not None:
-                    payload = part.get_payload(decode=True).decode(charset, errors="replace")
-                    ret += payload
-                else:
+                try:
+                    if charset:
+                        payload = part.get_payload(decode=True).decode(charset, errors="replace")
+                        ret += payload
+                    else:
+                        payload = part.get_payload(decode=True).decode(errors="replace")
+                        ret += payload
+                except:
                     payload = part.get_payload(decode=True).decode(errors="replace")
                     ret += payload
+
             # TODO: Can extend more content type here
 
         return ret

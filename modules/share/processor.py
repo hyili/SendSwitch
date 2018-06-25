@@ -124,9 +124,11 @@ class Post_to_Webhook_Processor(Processor):
 # Blacklist/Whitelist sample
 class Blacklist_Whitelist_Processor(Processor):
     def setBlacklist(self, path):
-        self.blacklist = ["<a19931031@gmail.com>"]
+        # self.blacklist = ["<test@example.com>"]
+        self.blacklist = []
         pass
     def setWhitelist(self, path):
+        # self.whitelist = ["<test@example.com>"]
         self.whitelist = []
         pass
     def target(self, msg):

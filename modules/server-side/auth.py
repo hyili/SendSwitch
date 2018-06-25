@@ -13,7 +13,7 @@ def ldap_authenticate(account, passwd, ldap_settings=None):
         return False
 
     try:
-        server = Server(ldap_server, use_ssl=False, get_info=ALL)
+        server = Server(ldap_server, use_ssl=use_ssl, get_info=ALL)
         connection = Connection(server, dn, passwd, auto_bind=True)
     except Exception as e:
         print(e)

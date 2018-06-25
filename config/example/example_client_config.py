@@ -12,12 +12,14 @@ from processor import Processor, Echo_Processor, Post_to_Slack_Processor, Post_t
 processor_1 = Echo_Processor(description="This is echo processor sample.")
 processor_2 = Post_to_Slack_Processor(description="This is post to slack processor sample.")
 processor_2.setWebhook(["slack_webhook_list"])
+processor_2.deactivate()
 processor_3 = Post_to_Webhook_Processor(description="This is post to webhook processor sample.")
 processor_3.setWebhook(["https://your/own/webhook/here"])
 processor_3.deactivate()
 processor_4 = Blacklist_Whitelist_Processor(description="This is blacklist & whitelist processor sample.")
 processor_4.setBlacklist(path=None)
 processor_4.setWhitelist(path=None)
+processor_4.deactivate()
 
 # Processors
 processors = [processor_1, processor_2, processor_3, processor_4]
