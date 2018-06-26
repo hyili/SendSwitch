@@ -7,8 +7,8 @@ import asyncio
 from aiosmtpd.handlers import Proxy
 
 sys.path.append("../modules/server-side")
-from handler import MQHandler, ProxyHandler
-from controller import Server_Controller
+from handler import SMTPMQHandler, SMTPProxyHandler
+from controller import ServerController
 import web
 
 sys.path.append("../config")
@@ -18,11 +18,11 @@ import server_config
 # Asynchronous smtpd server, await many functions to handle the request at the
 # same time
 
-def Create_MQController(config, local, remote, backup_enable, temp_directory, silent_mode,
+def create_MQ_controller(config, local, remote, backup_enable, temp_directory, silent_mode,
     returnmq_mod=True, statistic_mod=True, timeout_mod=True):
 
     # SMTP method handler
-    handler = MQHandler(config=config,
+    handler = SMTPMQHandler(config=config,
         local=local,
         remote=remote,
         backup_enable=backup_enable,
@@ -38,7 +38,7 @@ def Create_MQController(config, local, remote, backup_enable, temp_directory, si
         loop.create_task(handler.timeout_mod())
 
     # SMTP server setup
-    SMTPDController = Server_Controller(
+    SMTPDController = ServerController(
         handler=handler,
         loop=loop,
         hostname=local.hostname,
@@ -46,15 +46,15 @@ def Create_MQController(config, local, remote, backup_enable, temp_directory, si
 
     return SMTPDController
 
-def Create_ProxyController(config, local, remote, silent_mode):
+def create_proxy_controller(config, local, remote, silent_mode):
     # SMTP method handler
-    handler = ProxyHandler(config=config,
+    handler = SMTPProxyHandler(config=config,
         local=local,
         remote=remote,
         silent_mode=silent_mode)
 
     # SMTP server setup
-    SMTPDController = Server_Controller(
+    SMTPDController = ServerController(
         handler=handler,
         hostname=local.hostname,
         port=local.port)
@@ -74,7 +74,7 @@ silent_mode = config.kwargs["silent_mode"]
 # Controller setup
 # TODO: auto-creation according to config
 MQ_node = "Message-Queue-node"
-SMTPD_MQController = Create_MQController(config=config,
+SMTPD_MQ_controller = create_MQ_controller(config=config,
     local=servers.get(MQ_node),
     remote=servers.get(default_user_settings[MQ_node]),
     backup_enable=backup_enable,
@@ -82,7 +82,7 @@ SMTPD_MQController = Create_MQController(config=config,
     silent_mode=silent_mode
 )
 
-SMTPD_ProxyControllers = list()
+SMTPD_proxy_controllers = list()
 server_ids = list(default_user_settings.keys())
 server_ids.remove(MQ_node)
 for server_id in server_ids:
@@ -92,8 +92,8 @@ for server_id in server_ids:
         print(" [*] {0}".format(e))
         quit()
     finally:
-        SMTPD_ProxyControllers.append(
-            Create_ProxyController(config=config,
+        SMTPD_proxy_controllers.append(
+            create_proxy_controller(config=config,
                 local=servers.get(server_id),
                 remote=servers.get(next_hop_server_id),
                 silent_mode=silent_mode
@@ -104,22 +104,22 @@ try:
     print(" [*] Waiting for emails. To exit press CTRL+C")
 
     # Need to start proxy first
-    for SMTPD_ProxyController in SMTPD_ProxyControllers:
-        SMTPD_ProxyController.start()
-    SMTPD_MQController.start()
+    for SMTPD_proxy_controller in SMTPD_proxy_controllers:
+        SMTPD_proxy_controller.start()
+    SMTPD_MQ_controller.start()
     web.ManagementUI(config)
 
     print(" [*] Quit.")
-    SMTPD_MQController.stop()
-    for SMTPD_ProxyController in SMTPD_ProxyControllers:
-        SMTPD_ProxyController.stop()
+    SMTPD_MQ_controller.stop()
+    for SMTPD_proxy_controller in SMTPD_proxy_controllers:
+        SMTPD_proxy_controller.stop()
 except KeyboardInterrupt:
     print(" [*] Signal Catched. Quit.")
-    SMTPD_MQController.stop()
-    for SMTPD_ProxyController in SMTPD_ProxyControllers:
-        SMTPD_ProxyController.stop()
+    SMTPD_MQ_controller.stop()
+    for SMTPD_proxy_controller in SMTPD_proxy_controllers:
+        SMTPD_proxy_controller.stop()
 except Exception as e:
     print(" [*] {0}".format(e))
-    SMTPD_MQController.stop()
-    for SMTPD_ProxyController in SMTPD_ProxyControllers:
-        SMTPD_ProxyController.stop()
+    SMTPD_MQ_controller.stop()
+    for SMTPD_proxy_controller in SMTPD_proxy_controllers:
+        SMTPD_proxy_controller.stop()

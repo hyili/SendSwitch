@@ -2,7 +2,7 @@
 
 import queue
 
-class Shared_Queue():
+class SharedQueue():
     def __init__(self, *args, queue_size=1000, **kwargs):
         self.kwargs = kwargs
         self.queue_size = queue_size

@@ -6,7 +6,7 @@
 import sys
 
 sys.path.append("../modules/client-side")
-from controller import Client_Controller
+from controller import ClientController
 import web
 
 sys.path.append("../config")
@@ -17,19 +17,19 @@ config = client_config.config
 silent_mode = config.kwargs["silent_mode"]
 
 # Controller setup
-Controller = Client_Controller(config, silent_mode)
+controller = ClientController(config, silent_mode)
 
 try:
     print(" [*] Waiting for messages. To exit press CTRL+C")
 
-    Controller.start()
+    controller.start()
     web.ManagementUI(config)
 
     print(" [*] Quit.")
-    Controller.stop()
+    controller.stop()
 except KeyboardInterrupt:
     print(" [*] Signal Catched. Quit.")
-    Controller.stop()
+    controller.stop()
 except Exception as e:
     print(" [*] Something wrong happened. {0}".format(e))
-    Controller.stop()
+    controller.stop()

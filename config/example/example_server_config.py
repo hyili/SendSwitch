@@ -4,7 +4,7 @@ import sys
 
 sys.path.append("../modules/share")
 from config_loader import Config
-from shared_queue import Shared_Queue
+from shared_queue import SharedQueue
 import user_profile
 import server_profile
 
@@ -49,10 +49,10 @@ ldap_settings["user_dn"] = "uid={0},dc=,dc=,dc="
 ldap_settings["ldap_server"] = "localhost"
 
 # Output setup
-output = Shared_Queue()
+output = SharedQueue()
 
 # Flush setup
-flush = Shared_Queue()
+flush = SharedQueue()
 
 # Config setup
 config = Config(registered_servers=servers,

@@ -9,7 +9,7 @@ import requests
 
 from protocols import Request
 
-class sender():
+class Sender():
     def __init__(self, timeout=600, exchange_id="random", routing_keys=["random"], user_profile=None, host="localhost", port=5672, silent_mode=False):
         # rabbitmq host
         self.host = host
@@ -44,7 +44,7 @@ class sender():
         # result: storing result
         self.result = []
 
-        self.timeout = 600
+        self.timeout = timeout
 
     def __del__(self):
         # close connection: after destruction
@@ -64,7 +64,7 @@ class sender():
             silent_mode=self.silent_mode
         )
 
-    def _sendMsg(self, timestamp, expire, corr_id, data):
+    def _send_msg(self, timestamp, expire, corr_id, data):
         for routing_key in self.routing_keys:
             msg = json.dumps(data)
             self.channel.basic_publish(exchange=self.exchange_id,
@@ -83,7 +83,7 @@ class sender():
                 self.Debug("Sent {0}: {1}".format(corr_id, request.get()))
 
     # Non-Blocking
-    def sendMsg(self, msg, corr_id=None, result="Pending"):
+    def send_msg(self, msg, corr_id=None, result="Pending"):
         # corr_id: message correlation id
         if corr_id is None:
             corr_id = str(uuid.uuid4())
@@ -97,12 +97,12 @@ class sender():
             data=msg, result=result)
 
         try:
-            self._sendMsg(timestamp, expire, corr_id, request.get())
+            self._send_msg(timestamp, expire, corr_id, request.get())
         except pika.exceptions.ConnectionClosed:
             self.Debug("Connection to rabbitmq closed, trying to reconnect.")
             try:
                 self.reinit()
-                self._sendMsg(timestamp, expire, corr_id, request.get())
+                self._send_msg(timestamp, expire, corr_id, request.get())
             except Exception as e:
                 self.Debug("Failed to reconnect. {0}".format(e))
                 return None

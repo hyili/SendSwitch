@@ -7,7 +7,7 @@ import datetime
 import json
 import requests
 
-class result_handler():
+class Receiver():
     def __init__(self, exchange_id="random", routing_keys=["random"], host="localhost", silent_mode=False):
         # rabbitmq host
         self.host = host
@@ -57,7 +57,7 @@ class result_handler():
         self.result.update({properties.correlation_id: body.decode("utf-8")})
 
     # Non-Blocking
-    def checkResult(self):
+    def check_result(self):
         # dispatch consume_response using process_data_events() until data acquired
         # http://pika.readthedocs.io/en/0.10.0/modules/adapters/blocking.html
         try:
@@ -71,25 +71,25 @@ class result_handler():
         except Exception as e:
             raise Exception("Error occurred. {0}".format(e))
 
-    def getCurrentId(self):
+    def get_current_id(self):
         return self.result.keys()
 
     # Non-Blocking
-    def getResult(self, corr_id):
+    def get_result(self, corr_id):
         ret_val = self.result.pop(corr_id, None)
         return ret_val
 
     def get(self, corr_id):
-        self.checkResult()
-        return self.getResult(corr_id)
+        self.check_result()
+        return self.get_result(corr_id)
 
     # for retrying it is not good to push back the result here
     # the rotating time is too short
-    def pushBack(self, corr_id, result):
+    def push_back(self, corr_id, result):
         self.result.update({corr_id: result})
 
     def clear(self):
         self.result.clear()
 
     def remove(self, corr_id):
-        return self.getResult(corr_id)
+        return self.get_result(corr_id)

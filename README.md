@@ -82,3 +82,20 @@ localhost:10026	inet	n		-		n		-		10		smtpd
 
 #### tests/example_client.py
 - Example SMTP client for sending email using Python
+
+## Naming Rule
+#### class
+- For example:
+```
+class SomethingLikeThis():
+```
+#### function
+- For example:
+```
+def something_like_this():
+```
+#### variable
+- For example:
+```
+something_like_this
+```

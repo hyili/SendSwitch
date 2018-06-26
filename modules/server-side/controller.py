@@ -3,7 +3,7 @@
 from aiosmtpd.controller import Controller
 from aiosmtpd.smtp import SMTP
 
-class Server_Controller(Controller):
+class ServerController(Controller):
     def __init__(self, handler, loop=None, hostname=None, port=8025, decode_data=False):
         self.decode_data = decode_data
 

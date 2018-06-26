@@ -9,7 +9,7 @@ import requests
 
 from protocols import Response
 
-class receiver():
+class Receiver():
     def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", port=5672,
         processors=list(), silent_mode=False, vhost="/", credentials=None, user="guest", password="guest", output=None):
 

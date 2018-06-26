@@ -2,9 +2,9 @@
 
 import threading
 
-from recvmq import receiver
+from recvmq import Receiver
 
-class Client_Controller():
+class ClientController():
     def __init__(self, config, silent_mode=False):
         self.config = config
         self.thread = None
@@ -32,11 +32,11 @@ class Client_Controller():
         auth = self.config.kwargs["auth"]
         while True:
             try:
-                self.receiver = receiver(vhost=auth["vhost"], user=auth["user"], password=auth["password"], processors=self.processors, output=self.output)
+                self.receiver = Receiver(vhost=auth["vhost"], user=auth["user"], password=auth["password"], processors=self.processors, output=self.output)
                 self.receiver.run()
                 break
             except Exception as e:
-                self.Debug("Error occurred during receiver execution. {0}".format(e))
+                self.Debug("Error occurred during recvmq Receiver execution. {0}".format(e))
                 self.Debug("Wait for restarting.")
                 if self.interrupt_event.wait(timeout=self.retry_interval):
                     break

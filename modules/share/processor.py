@@ -14,10 +14,10 @@ class Processor():
         if not self.silent_mode:
             print(" [*] {0}".format(msg))
 
-    def setTimeout(self, timeout):
+    def set_timeout(self, timeout):
         self.timeout = timeout
 
-    def setDescription(self, description):
+    def set_description(self, description):
         self.description = description
 
     def activate(self):
@@ -63,19 +63,19 @@ class Processor():
             return ret
 
 # Echo Processor Sample
-class Echo_Processor(Processor):
+class EchoProcessor(Processor):
     def target(self, msg):
         return msg
 
 # Post to Slack Processor Sample
-class Post_to_Slack_Processor(Processor):
-    def setWebhook(self, webhooks):
+class SlackProcessor(Processor):
+    def set_webhook(self, webhooks):
         assert isinstance(webhooks, list), "webhooks must be a list."
 
         self.webhooks = webhooks
 
     def target(self, msg):
-        assert hasattr(self, "webhooks"), "you must setWebhook() first in your client_config.py."
+        assert hasattr(self, "webhooks"), "you must set_webhook() first in your client_config.py."
 
         data = {
             "text": str("```\n"+str(msg["header"]["subject"])+"\n```")
@@ -94,14 +94,14 @@ class Post_to_Slack_Processor(Processor):
         return msg
 
 # Post to Outer Webhook Processor Sample
-class Post_to_Webhook_Processor(Processor):
-    def setWebhook(self, webhooks):
+class WebhookProcessor(Processor):
+    def set_webhook(self, webhooks):
         assert isinstance(webhooks, list), "webhooks must be a list."
 
         self.webhooks = webhooks
 
     def target(self, msg):
-        assert hasattr(self, "webhooks"), "you must setWebhook() first in your client_config.py."
+        assert hasattr(self, "webhooks"), "you must set_webhook() first in your client_config.py."
 
         # TODO: defined your own data format
         data = str(msg)
@@ -122,18 +122,18 @@ class Post_to_Webhook_Processor(Processor):
         return msg
 
 # Blacklist/Whitelist sample
-class Blacklist_Whitelist_Processor(Processor):
-    def setBlacklist(self, path):
+class BlacklistWhitelistProcessor(Processor):
+    def set_blacklist(self, path):
         # self.blacklist = ["<test@example.com>"]
         self.blacklist = []
         pass
-    def setWhitelist(self, path):
+    def set_whitelist(self, path):
         # self.whitelist = ["<test@example.com>"]
         self.whitelist = []
         pass
     def target(self, msg):
-        assert hasattr(self, "blacklist"), "you must setBlacklist() first in your client_config.py."
-        assert hasattr(self, "whitelist"), "you must setWhitelist() first in your client_config.py."
+        assert hasattr(self, "blacklist"), "you must set_blacklist() first in your client_config.py."
+        assert hasattr(self, "whitelist"), "you must set_whitelist() first in your client_config.py."
 
         # set default action
         msg["result"] = "OK"
