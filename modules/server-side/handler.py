@@ -574,7 +574,18 @@ class SMTPMQHandler(SMTPProxyHandler):
                 bundle.status = -1
                 SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
                     format(result["result"]))
-            # Others drop
+            elif result["result"] == macro.SPAM:
+                bundle.status = -1
+                SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
+                    format(result["result"]))
+            elif result["result"] == macro.VIRUS:
+                bundle.status = -1
+                SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
+                    format(result["result"]))
+            elif result["result"] == macro.FORWARD:
+                bundle.status = -1
+                SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
+                    format(result["result"]))
             else:
                 bundle.status = -1
                 SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
