@@ -218,9 +218,7 @@ class SMTPProxyHandler(Proxy):
 
         return refused[bundle.rcpt]
 
-    def _send_email(self, mail_from, rcpt_tos, data, remote_hostname,
-        remote_port):
-
+    def _send_email(self, mail_from, rcpt_tos, data, remote_hostname, remote_port):
         refused = {}
 
         try:
@@ -436,7 +434,7 @@ class SMTPMQHandler(SMTPProxyHandler):
     def send(self, bundle, user_profile=None, direct=False):
         if not direct:
             # Check if the recepient is in registered_users list
-            if user_profile:
+            if user_profile and user_profile.is_activate():
                 self._send(
                     rcpt=bundle.rcpt,
                     bundle=bundle,
@@ -536,9 +534,9 @@ class SMTPMQHandler(SMTPProxyHandler):
                 if self.backup_enable:
                     self.backup(bundle)
 
-                # Check if the receiver is registered
+                # Check if the receiver is using this service
                 user_profile = self.registered_users.get(rcpt)
-                if user_profile:
+                if user_profile and user_profile.is_activate():
                     # Add corr_id to user's queuing_list
                     user_profile.add_queuing(corr_id)
 
@@ -566,7 +564,6 @@ class SMTPMQHandler(SMTPProxyHandler):
             if result["result"] == macro.PENDING:
                 bundle.status = 0
                 SMTP_result = self.send_email(bundle, user_profile)
-            # This handles the message that client said let it pass
             elif result["result"] == macro.PASS:
                 bundle.status = 1
                 SMTP_result = self.send_email(bundle, user_profile)
@@ -593,10 +590,8 @@ class SMTPMQHandler(SMTPProxyHandler):
 
             # Check result and update bundle status
             self.check_SMTP_result(bundle, SMTP_result)
-        except KeyError:
-            self.Debug("No such key in result. {0}".format(e))
-
-        return
+        except KeyError as e:
+            self.Debug("No such key {0} in client's response.".format(e), header=bundle.corr_id)
 
     # returnmq executor
     async def returnmq_executor(self, loop, executor):
@@ -622,7 +617,8 @@ class SMTPMQHandler(SMTPProxyHandler):
                     user_profile = self.registered_users.get(bundle.rcpt)
 
                     self.Debug("Receive from: {0}, to: {1}".format(
-                        bundle.envelope.mail_from, bundle.rcpt),header=corr_id)
+                        bundle.envelope.mail_from, bundle.rcpt),header=corr_id
+                    )
 
                     # Sol.1 Apply the action that client told us
                     #await self.apply_action(bundle, result, user_profile)
@@ -692,12 +688,12 @@ class SMTPMQHandler(SMTPProxyHandler):
                 rcpt = bundle.rcpt
                 user_profile = self.registered_users.get(rcpt)
 
-                # reset timeout, *2 means to wait for MQ Message timeout first
-                if user_profile is None:
-                    timeout = self.config.kwargs["timeout"] * 2
                 # using default timeout if no user settings
-                else:
+                if user_profile and user_profile.is_activate():
                     timeout = user_profile.timeout * 2
+                # reset timeout, *2 means to wait for MQ Message timeout first
+                else:
+                    timeout = self.config.kwargs["timeout"] * 2
 
                 # check if time is up
                 if timestamp - last_retry_timestamp > timeout:

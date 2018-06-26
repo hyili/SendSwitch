@@ -14,13 +14,8 @@ class Servers():
         self.source_list = list()
         self.dest_list = list()
 
-    def add(self, id=None, hostname=None, port=None, server=None, source=True, dest=True):
-        if server:
-            if server.id in self.registered_server_profile:
-                return None, "server exists."
-            else:
-                self.registered_server_profile[server.id] = server
-        elif id and hostname:
+    def add(self, id=None, hostname=None, port=None, source=True, dest=True):
+        if id and hostname:
             if id in self.registered_server_profile:
                 return None, "server exists."
             else:

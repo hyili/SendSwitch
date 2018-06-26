@@ -12,7 +12,7 @@
     <script>
         function activate_jQuery() {
             $.post(
-                "add",
+                "activate",
                 { "account": "{{ account }}", "domain": "{{ domain }}"},
                 function(data) {
                     alert("Response: " + data);
@@ -22,18 +22,28 @@
 
         function deactivate_jQuery() {
             $.post(
-                "del",
-                { "account": "{{ account }}", "domain": "{{ domain }}"},
+                "deactivate",
+                { "account": "{{ account }}", "domain": "{{ domain }}" },
                 function(data) {
                     alert("Response: " + data);
                 }
             );
         }
 
-        function show_jQuery() {
+        function show_registered_users_jQuery() {
             $.post(
-                "show",
+                "show/registered_users",
                 {},
+                function(data) {
+                    alert("Response: " + data);
+                }
+            );
+        }
+
+        function show_route_jQuery() {
+            $.post(
+                "show/route",
+                { "account": "{{ account }}", "domain": "{{ domain }}" },
                 function(data) {
                     alert("Response: " + data);
                 }
@@ -43,7 +53,7 @@
         function connect_jQuery(local, remote) {
             $.post(
                 "route",
-                { "account": "{{ account }}", "domain": "{{ domain }}", "local": local, "remote": remote},
+                { "account": "{{ account }}", "domain": "{{ domain }}", "local": local, "remote": remote },
                 function(data) {
                     alert("Response: " + data);
                 }
@@ -53,15 +63,11 @@
         function flush_jQuery() {
             $.post(
                 "flush",
-                { "account": "{{ account }}", "domain": "{{ domain }}"},
+                { "account": "{{ account }}", "domain": "{{ domain }}" },
                 function(data) {
                     alert("Response: " + data);
                 }
             );
-        }
-
-        function logout_jQuery() {
-            document.location.href += "/..";
         }
     </script>
 </head>
@@ -84,7 +90,8 @@
         <br><br>
         <button onclick="activate_jQuery()" class="btn btn-outline-success">Activate</button>
         <button onclick="deactivate_jQuery()" class="btn btn-outline-danger">Deactivate</button>
-        <button onclick="show_jQuery()" class="btn btn-outline-dark">Show current registered user</button>
+        <button onclick="show_registered_users_jQuery()" class="btn btn-outline-dark">Show current registered users</button>
+        <button onclick="show_route_jQuery()" class="btn btn-outline-dark">Show current route</button>
         <br><br>
         {% for src_server in src_servers %}{% for dst_server in dst_servers %}{% if src_server != dst_server %}
         <button onclick="connect_jQuery('{{ src_server }}', '{{ dst_server }}')" class="btn btn-outline-primary">Link {{ src_server }} to {{ dst_server }}.</button>
@@ -92,7 +99,9 @@
         <br><br>
         <button onclick="flush_jQuery()" class="btn btn-outline-info">Flush your email</button>
         <br><br>
-        <button onclick="logout_jQuery()" type="button" class="btn btn-outline-warning">Logout</button>
+        <form action="{{ url_for('logout') }}" method="POST">
+            <button type="submit" class="btn btn-outline-warning">Logout</button>
+        </form>
     </div>
 </div>
 

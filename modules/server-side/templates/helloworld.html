@@ -16,7 +16,10 @@
 <div class="container">
     <h2>Customized Content Filter Server</h2>
     <div>
-        <form action="manage" method="POST">
+        {% with messages = get_flashed_messages() %}
+        <div> {{ messages[0] }} </div>
+        {% endwith %}
+        <form action="{{ url_for('login') }}" method="POST">
             <div class="form-group">
                 <label for="email">Email:</label>
                 <input type="email" class="form-control" id="email" placeholder="Enter email" name="email">
@@ -27,7 +30,7 @@
             </div>
             <div class="form-check">
                 <label class="form-check-label">
-                    <input class="form-check-input" type="checkbox" name="remember"> Remember me
+                    <input class="form-check-input" type="checkbox" id="remember" name="remember"> Remember me
                 </label>
             </div>
             <button type="submit" class="btn btn-primary">Submit</button>

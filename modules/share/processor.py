@@ -27,7 +27,7 @@ class Processor():
     def deactivate(self):
         self.enable = False
 
-    def is_active(self):
+    def is_activate(self):
         return self.enable
 
     # customized function here
@@ -39,7 +39,7 @@ class Processor():
 
     def run(self, msg, pre_result):
         # check if the module is enabled
-        if self.is_active():
+        if self.is_activate():
             self.Debug("{0} is active, Start to process.".format(self.__class__.__name__))
         else:
             self.Debug("{0} is inactive, Skipped.".format(self.__class__.__name__))

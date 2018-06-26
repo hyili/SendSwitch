@@ -20,18 +20,18 @@
         });
 
         socket.on("disconnect", function() {
-			var disconnect_msg = " [*] Disconnected.";
+            var disconnect_msg = " [*] Disconnected.";
             $("#board").html(disconnect_msg);
             $("#log").append("<br>" + $("<div/>").text(disconnect_msg).html());
-		});
+        });
 
         socket.on("server_response", function(msg) {
             $("#log").append("<br>" + $("<div/>").text(msg.data).html());
         });
 
         socket.on("server_statistic", function(msg) {
-			var connect_msg = " [*] Connected.";
-			$("#board").html(connect_msg + " <br> [*] " + msg.data + " emails total");
+            var connect_msg = " [*] Connected.";
+            $("#board").html(connect_msg + " <br> [*] " + msg.data + " emails total");
             for (i = 0; i < msg.log.length; i++) {
                 $("#log").append("<br>" + $("<div/>").text(msg.log[i]).html());
             }

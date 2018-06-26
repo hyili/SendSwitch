@@ -31,18 +31,18 @@
         });
 
         socket.on("disconnect", function() {
-			var disconnect_msg = " [*] Disconnected.";
+            var disconnect_msg = " [*] Disconnected.";
             $("#board").html(disconnect_msg);
             $("#info").append("<br>" + $("<div/>").text(disconnect_msg).html());
-		});
+        });
 
         socket.on("server_response", function(msg) {
             $("#info").append("<br>" + $("<div/>").text(msg.data).html());
         });
 
         socket.on("server_statistic", function(msg) {
-			var connect_msg = " [*] Connected.";
-			$("#board").html(connect_msg + " <br> [*] " + msg.data);
+            var connect_msg = " [*] Connected.";
+            $("#board").html(connect_msg + " <br> [*] " + msg.data);
             for (i = 0; i < msg.info.length; i++) {
                 var obj = JSON.parse(msg.info[i]);
                 $("#email-json-viewer").append("<pre id=\"email-" + number_of_email.toString() + "\"></pre>");

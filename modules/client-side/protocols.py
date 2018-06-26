@@ -2,6 +2,8 @@
 
 import time
 
+# TODO: Add protocol version
+# TODO: Combine client & server protocol
 class Response():
     def __init__(self, timestamp, expire, result, data=None, reason=None):
         self.response = {

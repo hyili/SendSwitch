@@ -2,9 +2,7 @@
 
 from flask import request
 
-from flask import Flask, url_for, jsonify
-from flask import request
-from flask import render_template
+from flask import Flask, url_for, jsonify, request, render_template
 from flask_socketio import SocketIO, emit
 
 def ManagementUI(config):

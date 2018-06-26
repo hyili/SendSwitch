@@ -8,6 +8,23 @@ class User():
         self.queuing_list = list()
         self.settings = settings
 
+        # disable routing service by default
+        self.enable_service = False
+
+        # Flask-Login some attributes
+        self.is_authenticated = True
+        self.is_active = True
+        self.is_anonymous = False
+
+    def activate(self):
+        self.enable_service = True
+
+    def deactivate(self):
+        self.enable_service = False
+
+    def is_activate(self):
+        return self.enable_service
+
     def add_queuing(self, corr_id):
         if corr_id not in self.queuing_list:
             self.queuing_list.append(corr_id)
@@ -24,17 +41,26 @@ class User():
     def get_queuing_list(self):
         return self.queuing_list
 
+    # Flask-Login get_id method
+    # return current user's id
+    def get_id(self):
+        return self.email
+
 class Users():
     def __init__(self, settings=None):
         self.registered_user_profile = dict()
         self.default_user_settings = settings
 
-    def add(self, email=None, timeout=600, user=None):
-        if user:
-            self.registered_user_profile[user.email] = user
-        elif email:
-            user = User(email, timeout)
-            self.registered_user_profile[email] = user
+    def add(self, email=None, timeout=600):
+        if isinstance(email, str):
+            user = self.get(email)
+            if not user:
+                user = User(email, timeout, dict(self.default_user_settings))
+                self.registered_user_profile[email] = user
+
+            return user
+
+        return None
 
     def get(self, email):
         try:
