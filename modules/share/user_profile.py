@@ -11,15 +11,14 @@ class User():
     def add_queuing(self, corr_id):
         if corr_id not in self.queuing_list:
             self.queuing_list.append(corr_id)
+            return corr_id
         else:
-            # TODO: May have some problems here
-            pass
+            return None
 
     def remove_queuing(self, corr_id):
         try:
             self.queuing_list.remove(corr_id)
         except:
-            # TODO: May have some problems here
             pass
 
     def get_queuing_list(self):

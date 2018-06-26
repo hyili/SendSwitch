@@ -45,8 +45,6 @@ class TestHandler(Proxy):
         print(envelope.content.decode("utf8", errors="replace"))
         print("End of message")
 
-        # TODO: message queue handler here
-
         # Then, wait for Proxy to send messages back
         result =  await super(self.__class__, self).handle_DATA(server,
             session,

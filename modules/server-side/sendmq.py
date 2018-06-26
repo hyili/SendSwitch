@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import pika
 import uuid
-import sys
 import time
 import datetime
 import json
@@ -83,7 +82,7 @@ class Sender():
                 self.Debug("Sent {0}: {1}".format(corr_id, request.get()))
 
     # Non-Blocking
-    def send_msg(self, msg, corr_id=None, result="Pending"):
+    def send_msg(self, msg, result, corr_id=None):
         # corr_id: message correlation id
         if corr_id is None:
             corr_id = str(uuid.uuid4())
@@ -93,8 +92,7 @@ class Sender():
         # message will not actually be removed when times up
         # it will be removed until message head up the limit
         expire = (self.timeout if self.user_profile is None else self.user_profile.timeout) * 1000
-        request = Request(timestamp=timestamp, expire=expire,
-            data=msg, result=result)
+        request = Request(timestamp=timestamp, expire=expire, data=msg, result=result)
 
         try:
             self._send_msg(timestamp, expire, corr_id, request.get())

@@ -14,6 +14,7 @@ import auth
 import install
 import per_user_install
 
+# TODO: permission check
 def ManagementUI(config):
     app = Flask(__name__)
     app.config["SECRET_KEY"] = "secret!"
@@ -80,7 +81,6 @@ def ManagementUI(config):
 
     # APIs
     # TODO: install to rabbitmq?
-    # TODO: permission check
     @app.route("/add", methods=["Post"])
     def add_user():
         try:
@@ -103,7 +103,6 @@ def ManagementUI(config):
         return ""
 
     # TODO: deinstall from rabbitmq?
-    # TODO: permission check
     @app.route("/del", methods=["Post"])
     def del_user():
         try:
@@ -118,8 +117,7 @@ def ManagementUI(config):
         except Exception as e:
             return str(e)
 
-    # TODO: setup route for user
-    # TODO: permission check
+    # setup route for user
     @app.route("/route", methods=["Post"])
     def route():
         account = request.form["account"]
@@ -148,7 +146,6 @@ def ManagementUI(config):
     def show_user():
         return str(registered_users.getList())
 
-    # TODO: permission check
     @app.route("/flush", methods=["Post"])
     def flush_queuing_mail():
         account = request.form["account"]
@@ -167,21 +164,17 @@ def ManagementUI(config):
         else:
             return "Who are you"
 
-    # TODO: permission check
     @app.route("/monitor")
     def monitor():
         return render_template("monitor.html")
 
-    # TODO: permission check
     @socketio.on("client_event", namespace="/monitor")
     def client_msg(msg):
         emit("server_response", {"data": msg["data"]}, namespace="/monitor")
 
-    # TODO: permission check
     @socketio.on("connect_event", namespace="/monitor")
     def connected_msg(msg):
         emit("server_response", {"data": msg["data"]}, namespace="/monitor")
 
-    # TODO: session SSO
     socketio.start_background_task(target=background_thread)
     socketio.run(app=app, host=web_host, port=web_port)

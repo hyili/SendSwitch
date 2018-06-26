@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import requests
+import macro
 
 # Processor Template
 class Processor():
@@ -30,42 +31,47 @@ class Processor():
         return self.enable
 
     # customized function here
-    def target(self, msg):
+    def target(self, msg, pre_result):
         # define your function below
-        return msg
+        result = pre_result
 
-    def run(self, msg):
+        return msg, result
+
+    def run(self, msg, pre_result):
         # check if the module is enabled
         if self.is_active():
             self.Debug("{0} is active, Start to process.".format(self.__class__.__name__))
         else:
             self.Debug("{0} is inactive, Skipped.".format(self.__class__.__name__))
-            return msg
+            return msg, pre_result
 
-        # temporarily store msg
+        # temporarily store
         temp_msg = msg
+        temp_result = pre_result
 
         # run target function
         try:
             # parse to target
-            ret = self.target(msg)
+            ret_msg, ret_result = self.target(msg, pre_result)
 
             # TODO: check msg structure?
             # if nothing comes back
-            if ret is None:
-                self.Debug("Nothing returns back, returning the previous result.")
-                ret = temp_msg
+            if ret_msg is None or ret_result is None:
+                self.Debug("Nothing returns back, returning the previous arguments.")
+                ret_msg = temp_msg
+                ret_result = temp_result
         except Exception as e:
-            ret = temp_msg
+            ret_msg = temp_msg
+            ret_result = temp_result
             self.Debug("Some error occurred during {0}... Error shows below, Skipped this function".format(self.__class__.__name__))
             self.Debug(e)
         finally:
-            return ret
+            return ret_msg, ret_result
 
 # Echo Processor Sample
 class EchoProcessor(Processor):
-    def target(self, msg):
-        return msg
+    def target(self, msg, pre_result):
+        return msg, pre_result
 
 # Post to Slack Processor Sample
 class SlackProcessor(Processor):
@@ -74,8 +80,10 @@ class SlackProcessor(Processor):
 
         self.webhooks = webhooks
 
-    def target(self, msg):
+    def target(self, msg, pre_result):
         assert hasattr(self, "webhooks"), "you must set_webhook() first in your client_config.py."
+
+        result = pre_result
 
         data = {
             "text": str("```\n"+str(msg["header"]["subject"])+"\n```")
@@ -91,7 +99,7 @@ class SlackProcessor(Processor):
             print(r.status_code)
             print(r.text)
 
-        return msg
+        return msg, result
 
 # Post to Outer Webhook Processor Sample
 class WebhookProcessor(Processor):
@@ -100,10 +108,12 @@ class WebhookProcessor(Processor):
 
         self.webhooks = webhooks
 
-    def target(self, msg):
+    def target(self, msg, pre_result):
         assert hasattr(self, "webhooks"), "you must set_webhook() first in your client_config.py."
 
-        # TODO: defined your own data format
+        result = pre_result
+
+        # defined your own data format
         data = str(msg)
 
         # post to self-defined outer webhook
@@ -113,13 +123,13 @@ class WebhookProcessor(Processor):
                 json=data
             )
 
-            # TODO: defined your own response handler
+            # defined your own response handler
             if r.status_code != 200:
                 print(r.status_code)
             else:
                 print(r.text)
 
-        return msg
+        return msg, result
 
 # Blacklist/Whitelist sample
 class BlacklistWhitelistProcessor(Processor):
@@ -131,21 +141,23 @@ class BlacklistWhitelistProcessor(Processor):
         # self.whitelist = ["<test@example.com>"]
         self.whitelist = []
         pass
-    def target(self, msg):
+    def target(self, msg, pre_result):
         assert hasattr(self, "blacklist"), "you must set_blacklist() first in your client_config.py."
         assert hasattr(self, "whitelist"), "you must set_whitelist() first in your client_config.py."
 
         # set default action
-        msg["result"] = "OK"
+        result = pre_result
 
         for address in self.whitelist:
             if address in msg["header"]["from"]:
                 print("Address in whitelist")
-                msg["result"] = "OK"
+                result = macro.PASS
+                return msg, result
 
         for address in self.blacklist:
             if address in msg["header"]["from"]:
                 print("Address in blacklist")
-                msg["result"] = "Reject"
+                result = macro.DENY
+                return msg, result
 
-        return msg
+        return msg, result

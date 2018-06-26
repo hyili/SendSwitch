@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
-
-sys.path.append("../modules/share")
 from config_loader import Config
 from shared_queue import SharedQueue
 from processor import Processor, EchoProcessor, SlackProcessor, WebhookProcessor, BlacklistWhitelistProcessor

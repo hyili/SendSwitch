@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import pika
 import uuid
-import sys
 import time
 import datetime
 import json
@@ -31,7 +30,6 @@ class Receiver():
 
         self.connection.process_data_events()
 
-    # TODO: destructor
     def __del__(self):
         # close connection: after destruction
         try:

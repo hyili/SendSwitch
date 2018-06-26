@@ -24,6 +24,7 @@ from aiosmtpd.smtp import Envelope
 
 import sendmq
 import returnmq
+import macro
 
 EMPTYBYTES = b""
 COMMASPACE = ", "
@@ -114,9 +115,6 @@ class SMTPSessionBundle():
 
         # Extracting payload
         ret["payload"] = self.extract_payload(p)
-
-        # Appending result
-        ret["result"] = "Pending"
 
         # returning
         return ret
@@ -317,7 +315,6 @@ class SMTPMQHandler(SMTPProxyHandler):
         self.retry_interval = config.kwargs["retry_interval"]
 
         # Backup & Recovery
-        # TODO: set directory permission
         self.temp_directory = temp_directory
         self.temp_envelope_directory = "{0}envelope/".format(temp_directory)
         self.temp_origin_directory = "{0}origin/".format(temp_directory)
@@ -334,6 +331,7 @@ class SMTPMQHandler(SMTPProxyHandler):
 
     def init(self):
         try:
+            # set directory permission
             if not os.path.isdir(self.temp_directory):
                 os.mkdir(self.temp_directory, 0o700)
             if not os.path.isdir(self.temp_envelope_directory):
@@ -342,7 +340,6 @@ class SMTPMQHandler(SMTPProxyHandler):
                 os.mkdir(self.temp_origin_directory, 0o700)
         except Exception as e:
             self.Debug("Something went wrong during initialization of backup directory. {0}".format(e))
-            # TODO: Disable backup mode when failed
             self.Debug("Disable backup mode.")
             self.backup_enable = False
 
@@ -388,7 +385,6 @@ class SMTPMQHandler(SMTPProxyHandler):
                 self.backup(bundle)
             except Exception as ee:
                 self.Debug("Failed again. {0}".format(ee))
-                # TODO: Disable backup mode when failed
                 self.Debug("Disable backup mode.")
                 self.backup_enable = False
 
@@ -425,6 +421,7 @@ class SMTPMQHandler(SMTPProxyHandler):
 
                     # TODO: there is nothing in registered_users when restart
                     # Resend message
+                    # TODO: Mysql to store user profile information
                     # Check if the receiver is registered
                     user_profile = self.registered_users.get(bundle.rcpt)
                     if user_profile is not None:
@@ -483,8 +480,7 @@ class SMTPMQHandler(SMTPProxyHandler):
         sender = self.MQ_handler_bundles[rcpt].sender
 
         # Send out message to MQ with corr_id
-        # TODO: Maybe run_in_executor?
-        ret = sender.send_msg(bundle.data, corr_id=bundle.corr_id, result=bundle.data["result"])
+        ret = sender.send_msg(bundle.data, result=macro.PENDING, corr_id=bundle.corr_id)
 
         if ret:
             self.Debug("Send from: {0}, to: {1}".format(
@@ -563,28 +559,31 @@ class SMTPMQHandler(SMTPProxyHandler):
     # EXCEPTION
     # handle_exception(error)
 
-    # TODO: more action
+    # TODO: extend more action
     def apply_action(self, bundle, result, user_profile):
         # This handles the message that server send to itself
-        if result["result"] == "Pending":
-            bundle.status = 0
-            SMTP_result = self.send_email(bundle, user_profile)
-        # This handles the message that client said let it pass
-        elif result["result"] == "OK":
-            bundle.status = 1
-            SMTP_result = self.send_email(bundle, user_profile)
-        elif result["result"] == "Reject":
-            bundle.status = -1
-            SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
-                format(result["result"]))
-        # Others drop
-        else:
-            bundle.status = -1
-            SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
-                format(result["result"]))
+        try:
+            if result["result"] == macro.PENDING:
+                bundle.status = 0
+                SMTP_result = self.send_email(bundle, user_profile)
+            # This handles the message that client said let it pass
+            elif result["result"] == macro.PASS:
+                bundle.status = 1
+                SMTP_result = self.send_email(bundle, user_profile)
+            elif result["result"] == macro.DENY:
+                bundle.status = -1
+                SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
+                    format(result["result"]))
+            # Others drop
+            else:
+                bundle.status = -1
+                SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
+                    format(result["result"]))
 
-        # Check result and update bundle status
-        self.check_SMTP_result(bundle, SMTP_result)
+            # Check result and update bundle status
+            self.check_SMTP_result(bundle, SMTP_result)
+        except KeyError:
+            self.Debug("No such key in result. {0}".format(e))
 
         return
 

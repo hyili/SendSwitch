@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
-# TODO: Here is to solve security issue
+# To solve security issue
 # that RabbitMQ reveals in public network may cause problems
 
 import sys
 
+sys.path.append("../modules/share")
 sys.path.append("../modules/client-side")
 from controller import ClientController
 import web

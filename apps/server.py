@@ -6,6 +6,7 @@ import random
 import asyncio
 from aiosmtpd.handlers import Proxy
 
+sys.path.append("../modules/share")
 sys.path.append("../modules/server-side")
 from handler import SMTPMQHandler, SMTPProxyHandler
 from controller import ServerController
@@ -72,7 +73,6 @@ temp_directory = config.kwargs["temp_directory"]
 silent_mode = config.kwargs["silent_mode"]
 
 # Controller setup
-# TODO: auto-creation according to config
 MQ_node = "Message-Queue-node"
 SMTPD_MQ_controller = create_MQ_controller(config=config,
     local=servers.get(MQ_node),

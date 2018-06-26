@@ -3,7 +3,6 @@
 import time
 
 class Response():
-    # TODO: data and reason useless currently
     def __init__(self, timestamp, expire, result, data=None, reason=None):
         self.response = {
             "created": int(timestamp),

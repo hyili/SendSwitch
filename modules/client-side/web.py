@@ -64,6 +64,5 @@ def ManagementUI(config):
     def connected_msg(msg):
         emit("server_response", {"data": msg["data"]}, namespace="/monitor")
 
-    # TODO: session SSO
     socketio.start_background_task(target=background_thread)
     socketio.run(app=app, host=web_host, port=web_port)
