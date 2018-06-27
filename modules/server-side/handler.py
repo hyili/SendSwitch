@@ -646,7 +646,10 @@ class SMTPMQHandler(SMTPProxyHandler):
 
         while True:
             try:
-                self.handler = returnmq.Receiver(silent_mode=True)
+                self.handler = returnmq.Receiver(host=self.MQ_host,
+                    port=self.MQ_port,
+                    silent_mode=True
+                )
                 await self.returnmq_executor(loop, executor)
                 break
             except asyncio.CancelledError:

@@ -7,9 +7,10 @@ import json
 import requests
 
 class Receiver():
-    def __init__(self, exchange_id="random", routing_keys=["random"], host="localhost", silent_mode=False):
+    def __init__(self, exchange_id="random", routing_keys=["random"], host="localhost", port=5672, silent_mode=False):
         # rabbitmq host
         self.host = host
+        self.port = port
         self.silent_mode = silent_mode
 
         # exchange_id & routing_keys
@@ -20,7 +21,7 @@ class Receiver():
         self.result = dict()
 
         # connection to rabbitmq & channel declaration
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host))
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, port=self.port))
         self.channel = self.connection.channel()
 
         # set consume_response to consume the response, and use only once
@@ -46,6 +47,7 @@ class Receiver():
         self.__init__(exchange_id=self.exchange_id,
             routing_keys=self.routing_keys,
             host=self.host,
+            port=self.port,
             silent_mode=self.silent_mode
         )
 
