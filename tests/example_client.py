@@ -11,22 +11,22 @@ client = SMTP(hostname, port)
 print("Start to insert emails.")
 
 try:
-    if len(sys.argv) == 2:
+    if len(sys.argv) >= 3:
         number = int(sys.argv[1])
+        emails = sys.argv[2:]
     else:
-        print("please input an integer")
-        exit()
+        raise Exception("Show usage")
 except:
-    print("args must be an integer")
+    print("Usage: ./example_client.py [number_of_email] [email_1] [email_2] ...")
     exit()
 
 for i in range(0, number, 1):
     try:
-        r1 = client.sendmail("a@hyili.idv.tw", ["hyili@hyili.idv.tw"],
-"""From: Anne Person <anne@hyili.idv.tw>
-To: Bart Person <bart@hyili.idv.tw>
+        r1 = client.sendmail("test@example1.com", emails,
+"""From: Anne Person <test@example1.com>
+To: Bart Person <test@example2.com>
 Subject: A test
-Message-ID: <ant>
+Message-ID: whoowhoohaha
 
 Hi Bart, this is Anne.
 """)
