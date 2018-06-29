@@ -216,13 +216,14 @@ class SMTPProxyHandler(Proxy):
         except Exception as e:
             return (471, "Failed. reason: {0}".format(e))
 
+        # TODO: this will have problem when group mailing is implemented
         return refused[bundle.rcpt]
 
     def _send_email(self, mail_from, rcpt_tos, data, remote_hostname, remote_port):
         refused = {}
 
         try:
-            s = smtplib.SMTP(timeout=10)
+            s = smtplib.SMTP()
             s.connect(remote_hostname, remote_port)
             try:
                 # Though s.sendmail can done almost everything, it cannot get the reply
@@ -275,8 +276,12 @@ class SMTPProxyHandler(Proxy):
                 # Check if the receiver is registered
                 user_profile = self.registered_users.get(rcpt)
 
-                # Send message to next hop
-                SMTP_result = self.send_email(bundle, user_profile)
+                # Send message to next hop, run_in_executor to prevent blocking
+                loop = asyncio.get_event_loop()
+                task = loop.run_in_executor(None, self.send_email, bundle, user_profile)
+                finished, pending = await asyncio.wait([task])
+                for r in finished:
+                    SMTP_result = r.result()
 
                 # Transform to return string
                 result = "250 OK, saved as {0}, next hop status: {1}".format(corr_id, str(SMTP_result))
@@ -594,7 +599,8 @@ class SMTPMQHandler(SMTPProxyHandler):
             self.Debug("No such key {0} in client's response.".format(e), header=bundle.corr_id)
 
     # returnmq executor
-    async def returnmq_executor(self, loop, executor):
+    async def returnmq_executor(self):
+        loop = asyncio.get_event_loop()
         while True:
             if len(self.SMTP_session_bundles) > 0:
                 # Fetching result from MQ
@@ -634,23 +640,20 @@ class SMTPMQHandler(SMTPProxyHandler):
 
                 # Execute the subtask
                 # Though it can asynchoronously execute the task
-                # But it will still block until all tsaks done
+                # But it will still block until all tasks done
                 await asyncio.gather(*self.subtasks)
 
             # run every 10*random secs
             await asyncio.sleep(random.random()*10)
 
     async def returnmq_mod(self):
-        loop = asyncio.get_event_loop()
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
-
         while True:
             try:
                 self.handler = returnmq.Receiver(host=self.MQ_host,
                     port=self.MQ_port,
                     silent_mode=True
                 )
-                await self.returnmq_executor(loop, executor)
+                await self.returnmq_executor()
                 break
             except asyncio.CancelledError:
                 for subtask in self.subtasks:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 class User():
-    def __init__(self, email, timeout=600, settings=dict()):
+    def __init__(self, email, timeout, settings=dict()):
         self.email = email
         self.account, self.domain = email.split("@")
         self.timeout = timeout
@@ -51,7 +51,7 @@ class Users():
         self.registered_user_profile = dict()
         self.default_user_settings = settings
 
-    def add(self, email=None, timeout=600):
+    def add(self, timeout, email=None):
         if isinstance(email, str):
             user = self.get(email)
             if not user:

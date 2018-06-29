@@ -9,6 +9,9 @@ import server_profile
 servers = server_profile.Servers()
 servers.add(id="Message-Queue-node", hostname="localhost", port=8025, dest=False)
 servers.add(id="Amavisd-new-node", hostname="localhost", port=8026)
+
+# other content filter's import interface
+servers.add(id="Amavisd-new", hostname="localhost", port=10024, source=False)
 servers.add(id="Postfix", hostname="localhost", port=10026, source=False)
 servers.add(id="Noop", hostname="localhost", port=10000, source=False)
 
@@ -21,7 +24,7 @@ for id in servers.getList():
 # Server next hop setup
 default_user_settings = {
     "Message-Queue-node": "Postfix",
-    "Amavisd-new-node": "Noop"
+    "Amavisd-new-node": "Postfix"
 }
 
 # Check settings are correct
