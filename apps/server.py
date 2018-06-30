@@ -10,7 +10,7 @@ sys.path.append("../modules/share")
 sys.path.append("../modules/server-side")
 from handler import SMTPMQHandler, SMTPProxyHandler
 from controller import ServerController
-import web
+from web import web
 
 sys.path.append("../config")
 import server_config

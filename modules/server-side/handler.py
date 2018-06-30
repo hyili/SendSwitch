@@ -22,8 +22,8 @@ from aiosmtpd.handlers import Proxy
 from aiosmtpd.smtp import Session
 from aiosmtpd.smtp import Envelope
 
-import sendmq
-import returnmq
+from mq import sendmq
+from mq import returnmq
 import macro
 
 EMPTYBYTES = b""

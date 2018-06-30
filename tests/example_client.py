@@ -24,7 +24,7 @@ except:
 print("Start to insert emails.")
 for i in range(0, number, 1):
     try:
-        r1 = client.sendmail(mailer_domain, emails,
+        r1 = client.sendmail(mailer, emails,
 """From: Anne Person <test@example1.com>
 To: Bart Person <test@example2.com>
 Subject: A test

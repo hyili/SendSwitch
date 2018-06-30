@@ -9,9 +9,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 import os
 import threading
 
-import auth
-import install
-import per_user_install
+from auth import ldap
 
 # TODO: permission check
 def ManagementUI(config):
@@ -105,7 +103,7 @@ def ManagementUI(config):
         (account, domain) = email.split("@")
 
         if domain == email_domain:
-            if auth.ldap_authenticate(account, passwd, ldap_settings):
+            if ldap.ldap_authenticate(account, passwd, ldap_settings):
                 # Create user_profile if nothing found
                 user_profile = registered_users.get(email)
                 if not user_profile:

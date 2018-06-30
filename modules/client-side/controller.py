@@ -2,7 +2,7 @@
 
 import threading
 
-from recvmq import Receiver
+from mq.recvmq import Receiver
 
 class ClientController():
     def __init__(self, config, silent_mode=False):

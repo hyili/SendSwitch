@@ -8,7 +8,7 @@ import sys
 sys.path.append("../modules/share")
 sys.path.append("../modules/client-side")
 from controller import ClientController
-import web
+from web import web
 
 sys.path.append("../config")
 import client_config

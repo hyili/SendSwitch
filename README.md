@@ -20,6 +20,10 @@ It requires at least Python 3.5 to run.
 - OpenLDAP: https://www.openldap.org/
 
 ## Server-Side Envionment Setup
+```
+git clone https://github.com/hyili/Email-Content-Filter-Framework.git
+git submodule update --init
+```
 #### Python packages
 Required packages are listed in requirements file.
 use following command to install them
@@ -72,6 +76,10 @@ localhost:10026	inet	n		-		n		-		10		smtpd
 ```
 
 ## Client-Side Environment Setup
+```
+git clone https://github.com/hyili/Email-Content-Filter-Framework.git
+git submodule update --init
+```
 #### apps/client.py
 - Module for handling user's incoming email get from MessageQueue
 - in config/client_config.py
