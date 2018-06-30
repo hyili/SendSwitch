@@ -1,9 +1,27 @@
-# Postfix_Spammer_Filter
-A content filter function using MessageQueue with RPC implementation.
+# Email-Content-Filter-Framework
+An `Email-Content-Filter-Framework` project is a user-aware content filter which works for Postfix.
 
-## Server-Side Envionment
+## About
+A `Content-Filter-Server` is a content filter program, which receives emails via SMTP, and pushes emails into MessageQueue as RPC requests.
+With combination of MessageQueue's Pub/Sub, RPC, Authentication, and Authorization, which gave `Content-Filter-Server` the ability to distribute the incoming emails to many of individual `Content-Filter-Clients`.
+A `Content-Filter-Client` gets its own emails from MessageQueue, and can apply lots of processors on it, such as filtering, webhook, or notifying to other apps.
+After handled by processors, `Content-Filter-Client` can send a RPC response back into MessageQueue with an action in it, that tells the `Content-Filter-Server` how to handle this email.
+
+With this project, traditional mailbox or maildir delivery may become a backup method of email delivery.
+
+The `Email-Content-Filter-Framewor` may work with other SMTP MTAs, because of its support of SMTP, but we haven't tested yet.
+It requires at least Python 3.5 to run.
+
+## Related Projects
+- aiosmtpd: https://github.com/aio-libs/aiosmtpd
+- flask: http://flask.pocoo.org/
+- Postfix: http://www.postfix.org/
+- RabbitMQ: https://www.rabbitmq.com/
+- OpenLDAP: https://www.openldap.org/
+
+## Server-Side Envionment Setup
 #### Python packages
-Required packages are shown in requirements file.
+Required packages are listed in requirements file.
 use following command to install them
 ```
 pip3 install -r requirements
@@ -18,7 +36,7 @@ rabbitmq-plugins enable rabbitmq_auth_backend_ldap
 rabbitmq-plugins enable rabbitmq_shovel
 rabbitmq-plugins enable rabbitmq_shovel_management
 ```
-Finally, using install.py and per_user_install.py to setup your queue routing
+Finally, using apps/install.py and apps/per_user_install.py to setup your queue routing
 #### Postfix
 Install Postfix on your system, and modify the following
 - in master.cf
@@ -53,7 +71,7 @@ localhost:10026	inet	n		-		n		-		10		smtpd
 ./server.py
 ```
 
-## Client-Side Environment
+## Client-Side Environment Setup
 #### apps/client.py
 - Module for handling user's incoming email get from MessageQueue
 - in config/client_config.py
@@ -82,6 +100,28 @@ localhost:10026	inet	n		-		n		-		10		smtpd
 
 #### tests/example_client.py
 - Example SMTP client for sending email using Python
+
+## Features
+- [x] Performance is Okay.
+	- [x] Based on aiosmtpd with asynchronous smtpd
+	- [x] Based on smtplib and asyncio run_in_executor() to handle non-blocking send_mail function
+- [x] Very simple Web GUI interface.
+- [x] Incoming emails to JSON, to Webhook, to file.
+- [x] Simple logging mechanism.
+- [x] Multiple Processors for Clients to use.
+	- [x] Sample PASS processor
+	- [x] Webhook processor
+	- [x] Blacklist Whitelist processor
+- [ ] Outgoing emails including Send Email API.
+- [ ] DSN & RSN
+- [ ] Response actions
+	- [x] PENDING
+	- [x] PASS
+	- [x] DENY
+	- [ ] SPAM
+	- [ ] VIRUS
+	- [ ] FORWARD
+	- [ ] QUARATINE
 
 ## Naming Rule
 #### class
