@@ -5,15 +5,29 @@ from shared_queue import SharedQueue
 import user_profile
 import server_profile
 
-# Server setup
-servers = server_profile.Servers()
-servers.add(id="Message-Queue-node", hostname="localhost", port=8025, dest=False)
-servers.add(id="Amavisd-new-node", hostname="localhost", port=8026)
+# TODO: prevent loop
+# Server next hop setup
+default_route_settings = {
+    "Postfix-incoming-node": "Message-Queue-node",
+    "Message-Queue-node": "Postfix-outgoing-node",
+    "Amavisd-new-incoming-node": "Postfix-outgoing-node"
+}
 
-# other content filter's import interface
-servers.add(id="Amavisd-new", hostname="localhost", port=10024, source=False)
-servers.add(id="Postfix", hostname="localhost", port=10026, source=False)
-servers.add(id="Noop", hostname="localhost", port=10000, source=False)
+# Server setup
+servers = server_profile.Servers(route_settings=default_route_settings)
+
+# Postfix
+Pi = servers.add(id="Postfix-incoming-node", hostname="localhost", port=8025, dest=False)
+Po = servers.add(id="Postfix-outgoing-node", hostname="localhost", port=10025, source=False)
+servers.addExclusive(Pi.getId(), Po.getId())
+
+# Amavisd-new
+Ai = servers.add(id="Amavisd-new-incoming-node", hostname="localhost", port=8024, dest=False)
+Ao = servers.add(id="Amavisd-new-outgoing-node", hostname="localhost", port=10024, source=False)
+servers.addExclusive(Ai.getId(), Ao.getId())
+
+# Message Queue node
+servers.add(id="Message-Queue-node", hostname="localhost", port=8026)
 
 # Check servers
 for id in servers.getList():
@@ -21,26 +35,21 @@ for id in servers.getList():
     print(" [*] Server Settings OK: id: \"{0}\", hostname: \"{1}\", port: {2}".
         format(server.id, server.hostname, server.port))
 
-# Server next hop setup
-default_user_settings = {
-    "Message-Queue-node": "Postfix",
-    "Amavisd-new-node": "Postfix"
-}
-
 # Check settings are correct
-for key in default_user_settings:
+for key in default_route_settings:
     if servers.get(key) is None:
-        raise(Exception(" [*] default_user_settings: \"{0}\" not in servers".
+        raise(Exception(" [*] default_route_settings: \"{0}\" not in servers".
             format(key)))
-    if servers.get(default_user_settings[key]) is None:
-        raise(Exception(" [*] default_user_settings: \"{0}\" not in servers".
-            format(default_user_settings[key])))
+    if servers.get(default_route_settings[key]) is None:
+        raise(Exception(" [*] default_route_settings: \"{0}\" not in servers".
+            format(default_route_settings[key])))
 
     print(" [*] Route Settings OK: from: \"{0}\" to: \"{1}\"".
-        format(key, default_user_settings[key]))
+        format(key, default_route_settings[key]))
 
+# TODO: route settings
 # User setup with default route settings
-users = user_profile.Users(settings=default_user_settings)
+users = user_profile.Users(route_settings=default_route_settings)
 
 # LDAP settings
 ldap_settings = dict()

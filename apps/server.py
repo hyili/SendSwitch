@@ -67,7 +67,7 @@ config = server_config.config
 
 servers = config.kwargs["registered_servers"]
 users = config.kwargs["registered_users"]
-default_user_settings = users.getDefault()
+default_route_settings = users.getDefault()
 backup_enable = config.kwargs["backup_enable"]
 temp_directory = config.kwargs["temp_directory"]
 silent_mode = config.kwargs["silent_mode"]
@@ -76,18 +76,18 @@ silent_mode = config.kwargs["silent_mode"]
 MQ_node = "Message-Queue-node"
 SMTPD_MQ_controller = create_MQ_controller(config=config,
     local=servers.get(MQ_node),
-    remote=servers.get(default_user_settings[MQ_node]),
+    remote=servers.get(default_route_settings[MQ_node]),
     backup_enable=backup_enable,
     temp_directory=temp_directory,
     silent_mode=silent_mode
 )
 
 SMTPD_proxy_controllers = list()
-server_ids = list(default_user_settings.keys())
+server_ids = list(default_route_settings.keys())
 server_ids.remove(MQ_node)
 for server_id in server_ids:
     try:
-        next_hop_server_id = default_user_settings[server_id]
+        next_hop_server_id = default_route_settings[server_id]
     except Exception as e:
         print(" [*] {0}".format(e))
         quit()

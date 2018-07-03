@@ -138,7 +138,7 @@ def ManagementUI(config):
         # get user id from current_user
         (account, domain) = current_user.get_id().split("@")
 
-        return render_template("manage.html",
+        return render_template("manage.html", user=current_user, servers=registered_servers,
             account=account, domain=domain, src_servers=registered_servers.getSourceList(),
             dst_servers=registered_servers.getDestList()), 200
 
@@ -176,15 +176,12 @@ def ManagementUI(config):
         local = request.form.get("local")
         remote = request.form.get("remote")
 
+        # TODO
         try:
             if registered_servers.get(local) and registered_servers.get(remote):
-                if local not in current_user.settings:
-                    current_user.settings[local] = remote
-                elif current_user.settings[local] != remote:
-                    current_user.settings[local] = remote
-                else:
-                    return "Unchanged"
-            return "OK"
+                return "Unchanged"
+
+            return "Unchanged"
         except Exception as e:
             return str(e)
 

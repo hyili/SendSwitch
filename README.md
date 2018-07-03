@@ -53,7 +53,7 @@ scan	unix	-		-		n		-		10		smtp
 	-o disable_mime_output_conversion=yes
 	-o smtp_generic_maps=
 
-localhost:10026	inet	n		-		n		-		10		smtpd
+localhost:10025	inet	n		-		n		-		10		smtpd
 	-o smtpd_tls_security_level=
 	-o smtpd_sasl_auth_enable=no
 	-o content_filter=

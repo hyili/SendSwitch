@@ -47,15 +47,15 @@ class User():
         return self.email
 
 class Users():
-    def __init__(self, settings=None):
+    def __init__(self, route_settings=None):
         self.registered_user_profile = dict()
-        self.default_user_settings = settings
+        self.default_route_settings = route_settings
 
     def add(self, timeout, email=None):
         if isinstance(email, str):
             user = self.get(email)
             if not user:
-                user = User(email, timeout, dict(self.default_user_settings))
+                user = User(email, timeout, dict(self.default_route_settings))
                 self.registered_user_profile[email] = user
 
             return user
@@ -69,7 +69,7 @@ class Users():
             return None
 
     def getDefault(self):
-        return self.default_user_settings
+        return self.default_route_settings
 
     def delete(self, email=None):
         if self.get(email):

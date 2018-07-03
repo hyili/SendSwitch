@@ -18,6 +18,7 @@
                     alert("Response: " + data);
                 }
             );
+            location.reload();
         }
 
         function deactivate_jQuery() {
@@ -28,6 +29,7 @@
                     alert("Response: " + data);
                 }
             );
+            location.reload();
         }
 
         function show_registered_users_jQuery() {
@@ -58,6 +60,7 @@
                     alert("Response: " + data);
                 }
             );
+            location.reload();
         }
 
         function flush_jQuery() {
@@ -68,6 +71,7 @@
                     alert("Response: " + data);
                 }
             );
+            location.reload();
         }
     </script>
 </head>
@@ -88,15 +92,18 @@
         <button type="button" class="btn btn-outline-dark">Dark</button>
         <button type="button" class="btn btn-outline-light text-dark">Light</button>
         <br><br>
-        <button onclick="activate_jQuery()" class="btn btn-outline-success">Activate</button>
-        <button onclick="deactivate_jQuery()" class="btn btn-outline-danger">Deactivate</button>
+        <button onclick="activate_jQuery()" class="btn btn-outline-success {% if user.is_activate() %} active {% endif %}">Activate</button>
+        <button onclick="deactivate_jQuery()" class="btn btn-outline-danger {% if not user.is_activate() %} active {% endif %}">Deactivate</button>
         <button onclick="show_registered_users_jQuery()" class="btn btn-outline-dark">Show current registered users</button>
         <button onclick="show_route_jQuery()" class="btn btn-outline-dark">Show current route</button>
         <br><br>
-        {% for src_server in src_servers %}{% for dst_server in dst_servers %}{% if src_server != dst_server %}
-        <button onclick="connect_jQuery('{{ src_server }}', '{{ dst_server }}')" class="btn btn-outline-primary">Link {{ src_server }} to {{ dst_server }}.</button>
-        {% endif %}{% endfor %}{% endfor %}
+        {% for src_server in src_servers %}
+        <p>{{ src_server }}: </p>
+        {% for dst_server in dst_servers %}{% if src_server != dst_server and not servers.checkExclusive(src_server, dst_server) %}
+        <button onclick="connect_jQuery('{{ src_server }}', '{{ dst_server }}')" class="btn btn-outline-primary {% if user.settings[src_server] == dst_server %} active {% endif %}">{{ dst_server }}</button>
+        {% endif %}{% endfor %}
         <br><br>
+        {% endfor %}
         <button onclick="flush_jQuery()" class="btn btn-outline-info">Flush your email</button>
         <br><br>
         <form action="{{ url_for('logout') }}" method="POST">
