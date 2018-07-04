@@ -9,7 +9,7 @@ class SharedQueue():
         self.queue = queue.Queue(queue_size)
 
     def send(self, msg):
-        self.queue.put(msg, block=True)
+        self.queue.put(msg, block=False)
 
     def recv(self):
         try:
