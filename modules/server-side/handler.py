@@ -437,32 +437,28 @@ class SMTPMQHandler(SMTPProxyHandler):
                     print(e)
 
     def send(self, bundle, user_profile=None, direct=False):
+        rcpt = "others"
+        bundle = bundle
+        user_profile = user_profile
+        exchange_id = ""
+        routing_key = "return"
+
         if not direct:
             # Check if the recepient is in registered_users list
             if user_profile and user_profile.is_activate():
-                self._send(
-                    rcpt=bundle.rcpt,
-                    bundle=bundle,
-                    user_profile=user_profile,
-                    exchange_id="mail",
-                    routing_key="mail.{0}".format(bundle.rcpt),
-                )
-            else:
-                self._send(
-                    rcpt="others",
-                    bundle=bundle,
-                    user_profile=user_profile,
-                    exchange_id="",
-                    routing_key="return",
-                )
-        else:
-            self._send(
-                rcpt="others",
-                bundle=bundle,
-                user_profile=user_profile,
-                exchange_id="",
-                routing_key="return",
-            )
+                rcpt = bundle.rcpt
+                bundle = bundle
+                user_profile = user_profile
+                exchange_id = "mail"
+                routing_key = "mail.{0}".format(bundle.rcpt)
+
+        self._send(
+            rcpt=rcpt,
+            bundle=bundle,
+            user_profile=user_profile,
+            exchange_id=exchange_id,
+            routing_key=routing_key,
+        )
 
     def _send(self, rcpt, bundle, user_profile, exchange_id, routing_key):
         # Check if the per user connection to MQ is established
