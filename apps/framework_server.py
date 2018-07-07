@@ -19,13 +19,13 @@ import server_config
 # Asynchronous smtpd server, await many functions to handle the request at the
 # same time
 
-def create_MQ_controller(config, local, remote, backup_enable, temp_directory, silent_mode,
-    returnmq_mod=True, statistic_mod=True, timeout_mod=True):
+def create_MQ_controller(config, current_server, next_hop_server, backup_enable, temp_directory, silent_mode,
+    returnmq_mod=True, timeout_mod=True):
 
     # SMTP method handler
     handler = SMTPMQHandler(config=config,
-        local=local,
-        remote=remote,
+        current_server=current_server,
+        next_hop_server=next_hop_server,
         backup_enable=backup_enable,
         temp_directory=temp_directory,
         silent_mode=silent_mode)
@@ -42,23 +42,23 @@ def create_MQ_controller(config, local, remote, backup_enable, temp_directory, s
     SMTPDController = ServerController(
         handler=handler,
         loop=loop,
-        hostname=local.hostname,
-        port=local.port)
+        hostname=current_server.hostname,
+        port=current_server.port)
 
     return SMTPDController
 
-def create_proxy_controller(config, local, remote, silent_mode):
+def create_proxy_controller(config, current_server, next_hop_server, silent_mode):
     # SMTP method handler
     handler = SMTPProxyHandler(config=config,
-        local=local,
-        remote=remote,
+        current_server=current_server,
+        next_hop_server=next_hop_server,
         silent_mode=silent_mode)
 
     # SMTP server setup
     SMTPDController = ServerController(
         handler=handler,
-        hostname=local.hostname,
-        port=local.port)
+        hostname=current_server.hostname,
+        port=current_server.port)
 
     return SMTPDController
 
@@ -67,7 +67,7 @@ config = server_config.config
 
 servers = config.kwargs["registered_servers"]
 users = config.kwargs["registered_users"]
-default_route_settings = users.getDefault()
+default_routes = config.kwargs["default_routes"]
 backup_enable = config.kwargs["backup_enable"]
 temp_directory = config.kwargs["temp_directory"]
 silent_mode = config.kwargs["silent_mode"]
@@ -75,27 +75,27 @@ silent_mode = config.kwargs["silent_mode"]
 # Controller setup
 MQ_node = "Message-Queue-node"
 SMTPD_MQ_controller = create_MQ_controller(config=config,
-    local=servers.get(MQ_node),
-    remote=servers.get(default_route_settings[MQ_node]),
+    current_server=servers.get(MQ_node),
+    next_hop_server=servers.get(default_routes[MQ_node]),
     backup_enable=backup_enable,
     temp_directory=temp_directory,
     silent_mode=silent_mode
 )
 
 SMTPD_proxy_controllers = list()
-server_ids = list(default_route_settings.keys())
+server_ids = list(default_routes.keys())
 server_ids.remove(MQ_node)
 for server_id in server_ids:
     try:
-        next_hop_server_id = default_route_settings[server_id]
+        next_hop_server_id = default_routes[server_id]
     except Exception as e:
         print(" [*] {0}".format(e))
         quit()
     finally:
         SMTPD_proxy_controllers.append(
             create_proxy_controller(config=config,
-                local=servers.get(server_id),
-                remote=servers.get(next_hop_server_id),
+                current_server=servers.get(server_id),
+                next_hop_server=servers.get(next_hop_server_id),
                 silent_mode=silent_mode
             )
         )

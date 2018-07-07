@@ -10,10 +10,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js"></script>
     <script>
-        function activate_jQuery() {
+        function activate_service_jQuery() {
             $.post(
-                "activate",
-                { "account": "{{ account }}", "domain": "{{ domain }}"},
+                "service/activate",
+                {},
                 function(data) {
                     alert("Response: " + data);
                 }
@@ -21,10 +21,32 @@
             location.reload();
         }
 
-        function deactivate_jQuery() {
+        function deactivate_service_jQuery() {
             $.post(
-                "deactivate",
-                { "account": "{{ account }}", "domain": "{{ domain }}" },
+                "service/deactivate",
+                {},
+                function(data) {
+                    alert("Response: " + data);
+                }
+            );
+            location.reload();
+        }
+
+        function activate_route_jQuery() {
+            $.post(
+                "route/activate",
+                {},
+                function(data) {
+                    alert("Response: " + data);
+                }
+            );
+            location.reload();
+        }
+
+        function deactivate_route_jQuery() {
+            $.post(
+                "route/deactivate",
+                {},
                 function(data) {
                     alert("Response: " + data);
                 }
@@ -45,17 +67,17 @@
         function show_route_jQuery() {
             $.post(
                 "show/route",
-                { "account": "{{ account }}", "domain": "{{ domain }}" },
+                {},
                 function(data) {
                     alert("Response: " + data);
                 }
             );
         }
 
-        function connect_jQuery(local, remote) {
+        function connect_jQuery(local_sid, remote_sid) {
             $.post(
                 "route",
-                { "account": "{{ account }}", "domain": "{{ domain }}", "local": local, "remote": remote },
+                { "local_sid": local_sid, "remote_sid": remote_sid },
                 function(data) {
                     alert("Response: " + data);
                 }
@@ -66,7 +88,7 @@
         function flush_jQuery() {
             $.post(
                 "flush",
-                { "account": "{{ account }}", "domain": "{{ domain }}" },
+                {},
                 function(data) {
                     alert("Response: " + data);
                 }
@@ -92,15 +114,17 @@
         <button type="button" class="btn btn-outline-dark">Dark</button>
         <button type="button" class="btn btn-outline-light text-dark">Light</button>
         <br><br>
-        <button onclick="activate_jQuery()" class="btn btn-outline-success {% if user.is_activate() %} active {% endif %}">Activate</button>
-        <button onclick="deactivate_jQuery()" class="btn btn-outline-danger {% if not user.is_activate() %} active {% endif %}">Deactivate</button>
+        <button onclick="activate_service_jQuery()" class="btn btn-outline-success {% if user.service_ready %} active {% endif %}">Activate Service</button>
+        <button onclick="deactivate_service_jQuery()" class="btn btn-outline-danger {% if not user.service_ready %} active {% endif %}">Deactivate Service</button>
+        <button onclick="activate_route_jQuery()" class="btn btn-outline-success {% if user.route_ready %} active {% endif %}">Activate Route</button>
+        <button onclick="deactivate_route_jQuery()" class="btn btn-outline-danger {% if not user.route_ready %} active {% endif %}">Deactivate Route</button>
         <button onclick="show_registered_users_jQuery()" class="btn btn-outline-dark">Show current registered users</button>
         <button onclick="show_route_jQuery()" class="btn btn-outline-dark">Show current route</button>
         <br><br>
         {% for src_server in src_servers %}
-        <p>{{ src_server }}: </p>
-        {% for dst_server in dst_servers %}{% if src_server != dst_server and not servers.checkExclusive(src_server, dst_server) %}
-        <button onclick="connect_jQuery('{{ src_server }}', '{{ dst_server }}')" class="btn btn-outline-primary {% if user.settings[src_server] == dst_server %} active {% endif %}">{{ dst_server }}</button>
+        <p>{{ src_server.sid }}: </p>
+        {% for dst_server in dst_servers %}{% if src_server.sid != dst_server.sid %}
+		<button onclick="connect_jQuery('{{ src_server.sid }}', '{{ dst_server.sid }}')" class="btn btn-outline-primary {% if dst_server.sid == user_routes[src_server.sid] %} active {% endif %}">{{ dst_server.sid }}</button>
         {% endif %}{% endfor %}
         <br><br>
         {% endfor %}

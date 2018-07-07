@@ -120,17 +120,18 @@ class SMTPSessionBundle():
         return ret
 
 class SMTPProxyHandler(Proxy):
-    def __init__(self, config, local, remote, silent_mode=False):
-        super().__init__(remote.hostname, remote.port)
+    def __init__(self, config, current_server, next_hop_server, silent_mode=False):
+        super().__init__(next_hop_server.hostname, next_hop_server.port)
 
-        # local server config & remote server config
-        self.local = local
-        self.remote = remote
+        # current_server server config & next_hop_server server config
+        self.current_server = current_server
+        self.next_hop_server = next_hop_server
 
         # global config
         self.config = config
         self.registered_servers = config.kwargs["registered_servers"]
         self.registered_users = config.kwargs["registered_users"]
+        self.registered_routes = config.kwargs["registered_routes"]
 
         self.silent_mode = silent_mode
         self.SMTP_session_bundles = {}
@@ -141,9 +142,9 @@ class SMTPProxyHandler(Proxy):
     def Debug(self, msg, header="*"):
         if not self.silent_mode:
             timestamp = str(datetime.datetime.now())
-            print(" [{0:20s}] {1:36s}, {2:26s}, {3:s}".format(self.local.id, header, timestamp, msg))
+            print(" [{0:20s}] {1:36s}, {2:26s}, {3:s}".format(self.current_server.sid, header, timestamp, msg))
             self.output.send(" [{0:20s}] {1:36s}, {2:26s}, {3}".
-                format(self.local.id, header, timestamp, msg))
+                format(self.current_server.sid, header, timestamp, msg))
 
     def check_SMTP_result(self, bundle, SMTP_result):
         # Check if sending operation went wrong
@@ -170,31 +171,32 @@ class SMTPProxyHandler(Proxy):
 
     def finish(self, corr_id):
         bundle = self.SMTP_session_bundles.pop(corr_id, None)
-        self.local.statistic += 1
 
         user_profile = self.registered_users.get(bundle.rcpt)
-        # remove from queuing list
-        if user_profile:
-            user_profile.remove_queuing(corr_id)
+
+        # TODO: remove from queuing list
 
     def send_email(self, bundle, user_profile):
+        # TODO: loop prevention
         # get next hostname and port according to user's settings
-        remote_server = None
-        remote_hostname = None
-        remote_port = None
+        next_hop_server_sid = self.next_hop_server.sid
+        next_hop_server_hostname = self.next_hop_server.hostname
+        next_hop_server_port = self.next_hop_server.port
 
-        try:
-            remote_server = user_profile.settings[self.local.id]
-            remote_hostname = self.registered_servers.get(remote_server).hostname
-            remote_port = self.registered_servers.get(remote_server).port
-        except Exception as e:
-            remote_server = self.remote.id
-            remote_hostname = self.remote.hostname
-            remote_port = self.remote.port
+        if user_profile.route_ready:
+            #user_next_hop_server = self.next_hop_server
+            #next_hop_server_sid = user_next_hop_server.sid
+            #next_hop_server_hostname = user_next_hop_server.hostname
+            #next_hop_server_port = user_next_hop_server.port
+            user_route = self.registered_routes.get(user_profile.id, self.current_server.id)
+            if user_route:
+                next_hop_server_sid = user_route.dest.sid
+                next_hop_server_hostname = user_route.dest.hostname
+                next_hop_server_port = user_route.dest.port
 
         self.Debug("Next hop id: {0}, host: {1}, port: {2}".
-            format(remote_server, remote_hostname,
-            remote_port), header=bundle.corr_id)
+            format(next_hop_server_sid, next_hop_server_hostname,
+            next_hop_server_port), header=bundle.corr_id)
 
         content = bundle.envelope.original_content
         lines = content.splitlines(keepends=True)
@@ -212,19 +214,19 @@ class SMTPProxyHandler(Proxy):
         data = EMPTYBYTES.join(lines)
 
         try:
-            refused = self._send_email(bundle.envelope.mail_from, bundle.envelope.rcpt_tos, data, remote_hostname, remote_port)
+            refused = self._send_email(bundle.envelope.mail_from, bundle.envelope.rcpt_tos, data, next_hop_server_hostname, next_hop_server_port)
         except Exception as e:
             return (471, "Failed. reason: {0}".format(e))
 
         # TODO: this will have problem when group mailing is implemented
         return refused[bundle.rcpt]
 
-    def _send_email(self, mail_from, rcpt_tos, data, remote_hostname, remote_port):
+    def _send_email(self, mail_from, rcpt_tos, data, next_hop_server_hostname, next_hop_server_port):
         refused = {}
 
         try:
             s = smtplib.SMTP()
-            s.connect(remote_hostname, remote_port)
+            s.connect(next_hop_server_hostname, next_hop_server_port)
             try:
                 # Though s.sendmail can done almost everything, it cannot get the reply
                 s.docmd("HELO {0}".format(self.config.kwargs["host_domain"]))
@@ -295,8 +297,8 @@ class SMTPProxyHandler(Proxy):
         return result
 
 class SMTPMQHandler(SMTPProxyHandler):
-    def __init__(self, config, local, remote, host="localhost", backup_enable=False, temp_directory="/tmp/PSF/", silent_mode=False):
-        super().__init__(config, local, remote, silent_mode=silent_mode)
+    def __init__(self, config, current_server, next_hop_server, host="localhost", backup_enable=False, temp_directory="/tmp/PSF/", silent_mode=False):
+        super().__init__(config, current_server, next_hop_server, silent_mode=silent_mode)
 
         # MQ connections
         self.MQ_handler_bundles = {}
@@ -348,7 +350,6 @@ class SMTPMQHandler(SMTPProxyHandler):
 
     def finish(self, corr_id):
         bundle = self.SMTP_session_bundles.pop(corr_id, None)
-        self.local.statistic += 1
 
         if self.backup_enable:
             try:
@@ -359,9 +360,8 @@ class SMTPMQHandler(SMTPProxyHandler):
                 self.Debug("Remove failed. Reason: {0}".format(e), header=corr_id)
 
         user_profile = self.registered_users.get(bundle.rcpt)
-        # remove from queuing list
-        if user_profile:
-            user_profile.remove_queuing(corr_id)
+
+        # TODO: remove from queuing list
 
     # backup whole content of envelope
     def backup(self, bundle):
@@ -427,9 +427,8 @@ class SMTPMQHandler(SMTPProxyHandler):
                     # TODO: Mysql to store user profile information
                     # Check if the receiver is registered
                     user_profile = self.registered_users.get(bundle.rcpt)
-                    if user_profile is not None:
-                        # Add corr_id to user's queuing_list
-                        user_profile.add_queuing(corr_id)
+
+                    # TODO: Add corr_id to user's queuing_list
 
                     # Send message to MQ
                     self.send(bundle, user_profile=user_profile)
@@ -445,7 +444,7 @@ class SMTPMQHandler(SMTPProxyHandler):
 
         if not direct:
             # Check if the recepient is in registered_users list
-            if user_profile and user_profile.is_activate():
+            if user_profile and user_profile.service_ready:
                 rcpt = bundle.rcpt
                 bundle = bundle
                 user_profile = user_profile
@@ -537,9 +536,8 @@ class SMTPMQHandler(SMTPProxyHandler):
 
                 # Check if the receiver is using this service
                 user_profile = self.registered_users.get(rcpt)
-                if user_profile and user_profile.is_activate():
-                    # Add corr_id to user's queuing_list
-                    user_profile.add_queuing(corr_id)
+
+                # TODO: Add corr_id to user's queuing_list
 
                 # Send message to MQ
                 self.send(bundle, user_profile=user_profile)
@@ -691,7 +689,7 @@ class SMTPMQHandler(SMTPProxyHandler):
                 user_profile = self.registered_users.get(rcpt)
 
                 # using default timeout if no user settings
-                if user_profile and user_profile.is_activate():
+                if user_profile and user_profile.service_ready:
                     timeout = user_profile.timeout * 2
                 # reset timeout, *2 means to wait for MQ Message timeout first
                 else:

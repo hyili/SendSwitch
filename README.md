@@ -66,13 +66,13 @@ localhost:10025	inet	n		-		n		-		10		smtpd
 	-o mynetworks=127.0.0.0/8
 	-o smtpd_authorized_xforward_hosts=127.0.0.0/8
 ```
-#### apps/server.py
+#### apps/framework_server.py
 - Module for handling SMTP/SMTPD/MessageQueue message interaction
 - in config/server_config.py
 	- copy config/example/example_server_config.py to config/server_config.py modify it to fit your environment
 - sample usage
 ```
-./server.py
+./framework_server.py
 ```
 
 ## Client-Side Environment Setup
@@ -80,13 +80,13 @@ localhost:10025	inet	n		-		n		-		10		smtpd
 git clone https://github.com/hyili/Email-Content-Filter-Framework.git
 git submodule update --init
 ```
-#### apps/client.py
+#### apps/framework_client.py
 - Module for handling user's incoming email get from MessageQueue
 - in config/client_config.py
 	- copy config/example/example_client_config.py to config/client_config.py modify it to fit your environment and add some customized processors
 - sample usage
 ```
-./client.py
+./framework_client.py
 ```
 
 ## Other Scripts

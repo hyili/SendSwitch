@@ -1,79 +1,170 @@
 #!/usr/bin/env python3
 
-class User():
-    def __init__(self, email, timeout, settings=dict()):
-        self.email = email
-        self.account, self.domain = email.split("@")
-        self.timeout = timeout
-        self.queuing_list = list()
-        self.settings = settings
+import datetime
+import pymysql
+import sqlalchemy
+from sqlalchemy import create_engine, update, and_, or_
+from sqlalchemy.orm import sessionmaker
 
-        # disable routing service by default
-        self.enable_service = False
-
-        # Flask-Login some attributes
-        self.is_authenticated = True
-        self.is_active = True
-        self.is_anonymous = False
-
-    def activate(self):
-        self.enable_service = True
-
-    def deactivate(self):
-        self.enable_service = False
-
-    def is_activate(self):
-        return self.enable_service
-
-    def add_queuing(self, corr_id):
-        if corr_id not in self.queuing_list:
-            self.queuing_list.append(corr_id)
-            return corr_id
-        else:
-            return None
-
-    def remove_queuing(self, corr_id):
-        try:
-            self.queuing_list.remove(corr_id)
-        except:
-            pass
-
-    def get_queuing_list(self):
-        return self.queuing_list
-
-    # Flask-Login get_id method
-    # return current user's id
-    def get_id(self):
-        return self.email
+from user import User
 
 class Users():
-    def __init__(self, route_settings=None):
-        self.registered_user_profile = dict()
-        self.default_route_settings = route_settings
+    def __init__(self, db_host, db_port, db_name, db_user, db_passwd):
+        # create sqlalchemy ORM engine
+        self.engine = create_engine("mysql+pymysql://{0}:{1}@{2}:{3}/{4}".\
+            format(db_user, db_passwd, db_host, db_port, db_name))
+        self.sessionmaker = sessionmaker(bind=self.engine)
 
-    def add(self, timeout, email=None):
-        if isinstance(email, str):
-            user = self.get(email)
-            if not user:
-                user = User(email, timeout, dict(self.default_route_settings))
-                self.registered_user_profile[email] = user
-
-            return user
-
-        return None
-
-    def get(self, email):
-        try:
-            return self.registered_user_profile[email]
-        except:
+    def add(self, timeout, email):
+        if not email:
             return None
 
-    def getDefault(self):
-        return self.default_route_settings
+        user = self.get(email)
+        if user:
+            print("user {0} exists.".format(email))
+            return None
 
-    def delete(self, email=None):
-        if self.get(email):
-            self.registered_user_profile.pop(email)
+        user = User(email, timeout, service_ready=False, route_ready=True)
+        session = self.sessionmaker()
+        try:
+            session.add(user)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            user = None
+            print(e)
 
-    def getList(self):
-        return list(self.registered_user_profile.keys())
+        session.close()
+
+        return user
+
+    def activate_service(self, id):
+        if not id:
+            return False
+
+        ret = True
+        session = self.sessionmaker()
+        try:
+            session.query(User).filter_by(id=id).update(
+                {"service_ready": True, "service_ready_at": datetime.datetime.now()}
+            )
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            ret = False
+            print(e)
+
+        session.close()
+
+        return ret
+
+    def deactivate_service(self, id):
+        if not id:
+            return False
+
+        ret = True
+        session = self.sessionmaker()
+        try:
+            session.query(User).filter_by(id=id).update(
+                {"service_ready": False, "service_ready_at": datetime.datetime.now()}
+            )
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            ret = False
+            print(e)
+
+        session.close()
+
+        return ret
+
+    def activate_route(self, id):
+        if not id:
+            return False
+
+        ret = True
+        session = self.sessionmaker()
+        try:
+            session.query(User).filter_by(id=id).update(
+                {"route_ready": True, "route_ready_at": datetime.datetime.now()}
+            )
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            ret = False
+            print(e)
+
+        session.close()
+
+        return ret
+
+    def deactivate_route(self, id):
+        if not id:
+            return False
+
+        ret = True
+        session = self.sessionmaker()
+        try:
+            session.query(User).filter_by(id=id).update(
+                {"route_ready": False, "route_ready_at": datetime.datetime.now()}
+            )
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            ret = False
+            print(e)
+
+        session.close()
+
+        return ret
+
+    def get(self, email):
+        if not email:
+            return None
+
+        user = None
+        session = self.sessionmaker()
+        try:
+            account, domain = email.split("@")
+            user = session.query(User).filter(and_(User.account == account, User.domain == domain)).one()
+        except sqlalchemy.orm.exc.MultipleResultsFound as e:
+            raise Exception("Database record error. {0}".format(e))
+        except Exception as e:
+            user = None
+            print(e)
+
+        session.close()
+
+        return user
+
+    def getEmailList(self):
+        emails = None
+        session = self.sessionmaker()
+        try:
+            users = session.query(User.account, User.domain).all()
+            emails = [ "{0}@{1}".format(user, domain) for user, domain in users ]
+        except Exception as e:
+            emails = None
+            print(e)
+
+        session.close()
+
+        return emails
+
+    def delete(self, id):
+        if not id:
+            return False
+
+        ret = True
+        session = self.sessionmaker()
+        try:
+            session.query(User).filter(User.id==id).delete()
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            ret = False
+            print(e)
+
+        session.close()
+
+        return ret

@@ -28,6 +28,8 @@ def ManagementUI(config):
     # config variable
     registered_users = config.kwargs["registered_users"]
     registered_servers = config.kwargs["registered_servers"]
+    registered_routes = config.kwargs["registered_routes"]
+    default_routes = config.kwargs["default_routes"]
     email_domain = config.kwargs["email_domain"]
     host_domain = config.kwargs["host_domain"]
     web_host = config.kwargs["web_host"]
@@ -42,8 +44,7 @@ def ManagementUI(config):
     def background_thread():
         while True:
             # email statistic
-            server = registered_servers.get("Message-Queue-node")
-            data = server.statistic
+            data = 0
 
             # logging
             log = list()
@@ -126,7 +127,11 @@ def ManagementUI(config):
     # Flask-Login handle logout user action page
     @app.route("/logout", methods=["Get", "Post"])
     def logout():
-        logout_user()
+        try:
+            logout_user()
+        except Exception as e:
+            print(e)
+
         flash("Logged out successfully!")
 
         return render_template("helloworld.html"), 200
@@ -135,35 +140,72 @@ def ManagementUI(config):
     @app.route("/manage", methods=["Get"])
     @login_required
     def manage():
-        # get user id from current_user
+        # get user "email" not "id" from current_user
         (account, domain) = current_user.get_id().split("@")
+        routes = registered_routes.getRoutes(current_user.id)
+        user_routes = dict()
+        for route in routes:
+            user_routes[route.src.sid] = route.dest.sid
 
-        return render_template("manage.html", user=current_user, servers=registered_servers,
+        return render_template("manage.html", user=current_user, user_routes=user_routes,
             account=account, domain=domain, src_servers=registered_servers.getSourceList(),
             dst_servers=registered_servers.getDestList()), 200
 
     # APIs
     # TODO: install to rabbitmq?
-    @app.route("/activate", methods=["Post"])
+    @app.route("/service/activate", methods=["Post"])
     @login_required
-    def activate():
+    def activate_service():
         try:
-            if current_user.is_activate():
+            if current_user.service_ready:
                 return "Already activated."
             else:
-                current_user.activate()
-                return "OK"
+                if registered_users.activate_service(current_user.id):
+                    return "OK"
+                else:
+                    return "Failed"
         except Exception as e:
             return str(e)
 
     # TODO: deinstall from rabbitmq?
-    @app.route("/deactivate", methods=["Post"])
+    @app.route("/service/deactivate", methods=["Post"])
     @login_required
-    def deactivate():
+    def deactivate_service():
         try:
-            if current_user.is_activate():
-                current_user.deactivate()
-                return "OK"
+            if current_user.service_ready:
+                if registered_users.deactivate_service(current_user.id):
+                    return "OK"
+                else:
+                    return "Failed"
+            else:
+                return "Already deactivated."
+        except Exception as e:
+            return str(e)
+
+    @app.route("/route/activate", methods=["Post"])
+    @login_required
+    def activate_route():
+        try:
+            if current_user.route_ready:
+                return "Already activated."
+            else:
+                if registered_users.activate_route(current_user.id):
+                    return "OK"
+                else:
+                    return "Failed"
+        except Exception as e:
+            return str(e)
+
+    # TODO: add loop_check()
+    @app.route("/route/deactivate", methods=["Post"])
+    @login_required
+    def deactivate_route():
+        try:
+            if current_user.route_ready:
+                if registered_users.deactivate_route(current_user.id):
+                    return "OK"
+                else:
+                    return "Failed"
             else:
                 return "Already deactivated."
         except Exception as e:
@@ -173,39 +215,51 @@ def ManagementUI(config):
     @app.route("/route", methods=["Post"])
     @login_required
     def route():
-        local = request.form.get("local")
-        remote = request.form.get("remote")
+        local_sid = request.form.get("local_sid")
+        remote_sid = request.form.get("remote_sid")
 
-        # TODO
+        local = registered_servers.get(local_sid)
+        remote = registered_servers.get(remote_sid)
+
         try:
-            if registered_servers.get(local) and registered_servers.get(remote):
-                return "Unchanged"
+            if local and remote:
+                route = registered_routes.add(current_user.id, local.id, remote.id)
+                if route:
+                    return "OK"
+
+                route = registered_routes.update(current_user.id, local.id, remote.id)
+                if route:
+                    return "OK"
 
             return "Unchanged"
         except Exception as e:
             return str(e)
 
+    # TODO
     @app.route("/show/registered_users", methods=["Post"])
     @login_required
     def show_registered_users():
-        return str(registered_users.getList())
+        return str(registered_users.getEmailList())
 
+    # TODO
     @app.route("/show/route", methods=["Post"])
     @login_required
     def show_route():
         try:
-            return str(current_user.settings)
+            routes = registered_routes.getRoutes(current_user.id)
+            ret = [(route.src.sid, route.dest.sid) for route in routes]
+
+            return str(ret)
         except Exception as e:
+            print(e)
             return "Some error occurred"
 
+    # TODO
     @app.route("/flush", methods=["Post"])
     @login_required
     def flush_queuing_mail():
         try:
-            queuing_list = current_user.get_queuing_list()
-            for corr_id in queuing_list:
-                flush.send(corr_id)
-            return "OK"
+            return "Wait for implement"
         except Exception as e:
             return "Something wrong"
 

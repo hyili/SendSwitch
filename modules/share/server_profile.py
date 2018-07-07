@@ -1,111 +1,122 @@
 #!/usr/bin/env python3
 
-class Server():
-    def __init__(self, id, hostname, port):
-        self.id = id
-        self.hostname = hostname
-        self.port = port
-        self.statistic = 0
+import datetime
+import pymysql
+import sqlalchemy
+from sqlalchemy import create_engine, and_, or_
+from sqlalchemy.orm import sessionmaker
 
-    def getId(self):
-        return self.id
+from server import Server
 
 class Servers():
-    def __init__(self, route_settings):
-        self.registered_server_profile = dict()
-        self.source_list = list()
-        self.dest_list = list()
-        self.exclusive = dict()
-        self.default_route_settings = route_settings
+    def __init__(self, db_host, db_port, db_name, db_user, db_passwd):
+        # create sqlalchemy ORM engine
+        self.engine = create_engine("mysql+pymysql://{0}:{1}@{2}:{3}/{4}".\
+            format(db_user, db_passwd, db_host, db_port, db_name))
+        self.sessionmaker = sessionmaker(bind=self.engine)
 
-    def getDefault(self):
-        return self.default_route_settings
+    def add(self, sid, hostname, port, source=True, dest=True):
+        if not (sid and hostname and port):
+            return None
 
-    def add(self, id=None, hostname=None, port=None, source=True, dest=True):
-        if id and hostname:
-            if id in self.registered_server_profile:
-                return None
-            else:
-                server = Server(id, hostname, port)
-                self.registered_server_profile[id] = server
+        server = self.get(sid)
+        if server:
+            print("server {0} exists.".format(sid))
+            return None
 
-        if source:
-            self.addSource(id)
+        server = Server(sid, hostname, port, source, dest, activate=True)
+        session = self.sessionmaker()
+        try:
+            session.add(server)
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            server = None
+            print(e)
 
-        if dest:
-            self.addDest(id)
+        session.close()
 
         return server
 
-    def addSource(self, id):
-        if id in self.registered_server_profile and id not in self.source_list:
-            self.source_list.append(id)
-            return id
+    def get(self, sid):
+        if not sid:
+            return None
 
-        return None
-
-    def addDest(self, id):
-        if id in self.registered_server_profile and id not in self.dest_list:
-            self.dest_list.append(id)
-            return id
-
-        return None
-
-    def get(self, id):
+        server = None
+        session = self.sessionmaker()
         try:
-            return self.registered_server_profile[id]
-        except:
+            server = session.query(Server).filter(Server.sid == sid).one()
+        except sqlalchemy.orm.exc.MultipleResultsFound as e:
+            raise Exception("Database record error. {0}".format(e))
+        except Exception as e:
+            server = None
+            print(e)
+
+        session.close()
+
+        return server
+
+    def getFromId(self, id):
+        if not id:
             return None
 
-    def getSource(self, id):
-        if id in self.source_list:
-            return self.get(id)
-        else:
-            return None
-
-    def getDest(self, id):
-        if id in self.dest_list:
-            return self.get(id)
-        else:
-            return None
-
-    def addExclusive(self, id1, id2):
-        self.exclusive[id1] = id2
-        self.exclusive[id2] = id1
-
-    def getExclusive(self, id):
+        server = None
+        session = self.sessionmaker()
         try:
-            return self.exclusive[id]
-        except:
-            return None
+            server = session.query(Server).filter(Server.id == id).one()
+        except sqlalchemy.orm.exc.MultipleResultsFound as e:
+            raise Exception("Database record error. {0}".format(e))
+        except Exception as e:
+            server = None
+            print(e)
 
-    def checkExclusive(self, id1, id2):
-        ret = self.getExclusive(id1)
+        session.close()
 
-        if ret is None:
-            return None
-        else:
-            return ret == id2
+        return server
 
     def delete(self, id):
-        if self.get(id):
-            self.registered_server_profile.pop(id)
+        if not id:
+            return False
 
+        ret = True
+        session = self.sessionmaker()
         try:
-            self.source_list.remove(id)
-        except:
-            pass
+            session.query(Server).filter(Server.id==id).delete()
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            ret = False
+            print(e)
 
-        try:
-            self.dest_list.remove(id)
-        except:
-            pass
+        session.close()
+
+        return ret
 
     def getList(self):
-        return list(self.registered_server_profile)
+        servers = None
+        session = self.sessionmaker()
+        try:
+            servers = session.query(Server.sid).all()
+        except Exception as e:
+            servers = None
+            print(e)
 
+        session.close()
+        
+        return servers
+
+    # TODO: return type
     def getSourceList(self):
-        return list(self.source_list)
+        session = self.sessionmaker()
+        servers = session.query(Server).filter(Server.source == True).all()
+        session.close()
 
+        return servers
+
+    # TODO: return type
     def getDestList(self):
-        return list(self.dest_list)
+        session = self.sessionmaker()
+        servers = session.query(Server).filter(Server.destination == True).all()
+        session.close()
+
+        return servers
