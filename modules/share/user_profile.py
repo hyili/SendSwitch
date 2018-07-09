@@ -6,7 +6,7 @@ import sqlalchemy
 from sqlalchemy import create_engine, update, and_, or_
 from sqlalchemy.orm import sessionmaker
 
-from user import User
+from model.user import User
 
 class Users():
     def __init__(self, db_host, db_port, db_name, db_user, db_passwd):
@@ -38,7 +38,7 @@ class Users():
 
         return user
 
-    def activate_service(self, id):
+    def activateService(self, id):
         if not id:
             return False
 
@@ -58,7 +58,7 @@ class Users():
 
         return ret
 
-    def deactivate_service(self, id):
+    def deactivateService(self, id):
         if not id:
             return False
 
@@ -78,7 +78,7 @@ class Users():
 
         return ret
 
-    def activate_route(self, id):
+    def activateRoute(self, id):
         if not id:
             return False
 
@@ -98,7 +98,7 @@ class Users():
 
         return ret
 
-    def deactivate_route(self, id):
+    def deactivateRoute(self, id):
         if not id:
             return False
 

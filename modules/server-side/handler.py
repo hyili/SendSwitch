@@ -74,7 +74,7 @@ class SMTPProxyHandler(Proxy):
         self.config = config
         self.registered_servers = config.kwargs["registered_servers"]
         self.registered_users = config.kwargs["registered_users"]
-        self.registered_routes = config.kwargs["registered_routes"]
+        self.registered_user_routes = config.kwargs["registered_user_routes"]
 
         self.silent_mode = silent_mode
         self.SMTP_session_bundles = {}
@@ -98,11 +98,13 @@ class SMTPProxyHandler(Proxy):
             elif SMTP_result[0] < 0:
                 self.Debug("Something went wrong. {0}".
                     format(SMTP_result), header=bundle.corr_id)
-                return
+
+                return "471 Something wrong happened to {0}, next hop status {1}".format(bundle.corr_id, str(SMTP_result))
             else:
                 self.Debug("Something happened. {0}".
                     format(SMTP_result), header=bundle.corr_id)
-                return
+
+                return "471 Something wrong happened to {0}, next hop status {1}".format(bundle.corr_id, str(SMTP_result))
         else:
             self.Debug("Remove it. {0}".
                 format(SMTP_result), header=bundle.corr_id)
@@ -110,7 +112,7 @@ class SMTPProxyHandler(Proxy):
         # Pop finished job from SMTP_session_bundles
         self.finish(bundle.corr_id)
 
-        return
+        return "250 OK saved as {0}, next hop status {1}".format(bundle.corr_id, str(SMTP_result))
 
     def finish(self, corr_id):
         bundle = self.SMTP_session_bundles.pop(corr_id, None)
@@ -131,7 +133,7 @@ class SMTPProxyHandler(Proxy):
             #next_hop_server_sid = user_next_hop_server.sid
             #next_hop_server_hostname = user_next_hop_server.hostname
             #next_hop_server_port = user_next_hop_server.port
-            user_route = self.registered_routes.get(user_profile.id, self.current_server.id)
+            user_route = self.registered_user_routes.get(user_profile.id, self.current_server.id)
             if user_route:
                 next_hop_server_sid = user_route.dest.sid
                 next_hop_server_hostname = user_route.dest.hostname
@@ -228,14 +230,11 @@ class SMTPProxyHandler(Proxy):
                 for r in finished:
                     SMTP_result = r.result()
 
-                # Transform to return string
-                result = "250 OK, saved as {0}, next hop status: {1}".format(corr_id, str(SMTP_result))
-
                 # Check result
-                self.check_SMTP_result(bundle, SMTP_result)
+                result = self.check_SMTP_result(bundle, SMTP_result)
 
         except Exception as e:
-            return "471 {0}".format(e)
+            return "471 Something wrong happened, {0}".format(e)
 
         return result
 
@@ -489,7 +488,7 @@ class SMTPMQHandler(SMTPProxyHandler):
                 result = "250 OK, saved as {0}".format(corr_id)
 
         except Exception as e:
-            return "471 {0}".format(e)
+            return "471 Something wrong happened, {0}".format(e)
 
         return result
 
@@ -531,7 +530,7 @@ class SMTPMQHandler(SMTPProxyHandler):
                     format(result["result"]))
 
             # Check result and update bundle status
-            self.check_SMTP_result(bundle, SMTP_result)
+            result = self.check_SMTP_result(bundle, SMTP_result)
         except KeyError as e:
             self.Debug("No such key {0} in client's response.".format(e), header=bundle.corr_id)
 

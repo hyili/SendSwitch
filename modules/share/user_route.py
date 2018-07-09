@@ -6,26 +6,26 @@ import sqlalchemy
 from sqlalchemy import create_engine, update, and_, or_
 from sqlalchemy.orm import sessionmaker, aliased
 
-from model.route import ServerRoute
+from model.route import UserRoute
 from model.server import Server
 
-class ServerRoutes():
+class UserRoutes():
     def __init__(self, db_host, db_port, db_name, db_user, db_passwd):
         # create sqlalchemy ORM engine
         self.engine = create_engine("mysql+pymysql://{0}:{1}@{2}:{3}/{4}".\
             format(db_user, db_passwd, db_host, db_port, db_name))
         self.sessionmaker = sessionmaker(bind=self.engine)
 
-    def add(self, source_id, destination_id):
-        if not (source_id and destination_id):
+    def add(self, uid, source_id, destination_id):
+        if not (uid and source_id and destination_id):
             return None
 
-        route = self.get(source_id)
+        route = self.get(uid, source_id)
         if route:
-            print("route {0} exists.".format(source_id))
+            print("route {0} for user {1} exists.".format(source_id, uid))
             return None
 
-        route = ServerRoute(source_id, destination_id)
+        route = UserRoute(uid, source_id, destination_id)
         session = self.sessionmaker()
         try:
             session.add(route)
@@ -39,14 +39,14 @@ class ServerRoutes():
 
         return route
 
-    def update(self, source_id, destination_id):
-        if not (source_id and destination_id):
+    def update(self, uid, source_id, destination_id):
+        if not (uid and source_id and destination_id):
             return False
 
         ret = True
         session = self.sessionmaker()
         try:
-            session.query(ServerRoute).filter_by(source_id=source_id).\
+            session.query(UserRoute).filter_by(uid=uid, source_id=source_id).\
                 update({"destination_id": destination_id, "updated_at": datetime.datetime.now()})
             session.commit()
         except Exception as e:
@@ -58,8 +58,8 @@ class ServerRoutes():
 
         return ret
 
-    def get(self, source_id):
-        if not source_id:
+    def get(self, uid, source_id):
+        if not (uid and source_id):
             return None
 
         route = None
@@ -67,10 +67,10 @@ class ServerRoutes():
         try:
             src = aliased(Server, name="src")
             dest = aliased(Server, name="dest")
-            route = session.query(ServerRoute, src, dest).\
-                join(src, src.id==ServerRoute.source_id).\
-                join(dest, dest.id==ServerRoute.destination_id).\
-                filter(ServerRoute.source_id == source_id).\
+            route = session.query(UserRoute, src, dest).\
+                join(src, src.id==UserRoute.source_id).\
+                join(dest, dest.id==UserRoute.destination_id).\
+                filter(and_(UserRoute.uid == uid, UserRoute.source_id == source_id)).\
                 one()
         except sqlalchemy.orm.exc.MultipleResultsFound as e:
             raise Exception("Database record error. {0}".format(e))
@@ -82,15 +82,19 @@ class ServerRoutes():
 
         return route
 
-    def getServerRoutes(self):
+    def getUserRoutes(self, uid):
+        if not uid:
+            return None
+
         routes = None
         session = self.sessionmaker()
         try:
             src = aliased(Server, name="src")
             dest = aliased(Server, name="dest")
-            routes = session.query(ServerRoute, src, dest).\
-                join(src, src.id==ServerRoute.source_id).\
-                join(dest, dest.id==ServerRoute.destination_id).\
+            routes = session.query(UserRoute, src, dest).\
+                join(src, src.id==UserRoute.source_id).\
+                join(dest, dest.id==UserRoute.destination_id).\
+                filter(UserRoute.uid == uid).\
                 all()
         except Exception as e:
             routes = None

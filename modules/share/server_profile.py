@@ -6,7 +6,7 @@ import sqlalchemy
 from sqlalchemy import create_engine, and_, or_
 from sqlalchemy.orm import sessionmaker
 
-from server import Server
+from model.server import Server
 
 class Servers():
     def __init__(self, db_host, db_port, db_name, db_user, db_passwd):
@@ -96,7 +96,7 @@ class Servers():
         servers = None
         session = self.sessionmaker()
         try:
-            servers = session.query(Server.sid).all()
+            servers = session.query(Server).all()
         except Exception as e:
             servers = None
             print(e)
@@ -105,18 +105,28 @@ class Servers():
         
         return servers
 
-    # TODO: return type
     def getSourceList(self):
+        servers = None
         session = self.sessionmaker()
-        servers = session.query(Server).filter(Server.source == True).all()
+        try:
+            servers = session.query(Server).filter(Server.source == True).all()
+        except Exception as e:
+            servers = None
+            print(e)
+
         session.close()
 
         return servers
 
-    # TODO: return type
     def getDestList(self):
+        servers = None
         session = self.sessionmaker()
-        servers = session.query(Server).filter(Server.destination == True).all()
+        try:
+            servers = session.query(Server).filter(Server.destination == True).all()
+        except Exception as e:
+            servers = None
+            print(e)
+
         session.close()
 
         return servers

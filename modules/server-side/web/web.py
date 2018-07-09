@@ -26,10 +26,10 @@ def ManagementUI(config):
     login_manager.init_app(app)
 
     # config variable
-    registered_users = config.kwargs["registered_users"]
     registered_servers = config.kwargs["registered_servers"]
-    registered_routes = config.kwargs["registered_routes"]
-    default_routes = config.kwargs["default_routes"]
+    registered_users = config.kwargs["registered_users"]
+    registered_server_routes = config.kwargs["registered_server_routes"]
+    registered_user_routes = config.kwargs["registered_user_routes"]
     email_domain = config.kwargs["email_domain"]
     host_domain = config.kwargs["host_domain"]
     web_host = config.kwargs["web_host"]
@@ -142,14 +142,21 @@ def ManagementUI(config):
     def manage():
         # get user "email" not "id" from current_user
         (account, domain) = current_user.get_id().split("@")
-        routes = registered_routes.getRoutes(current_user.id)
+        _user_routes = registered_user_routes.getUserRoutes(current_user.id)
         user_routes = dict()
-        for route in routes:
-            user_routes[route.src.sid] = route.dest.sid
+        for route in _user_routes:
+            user_routes[route.src.sid] = route
+
+        _server_routes = registered_server_routes.getServerRoutes()
+        server_routes = dict()
+        for route in _server_routes:
+            server_routes[route.src.sid] = route
 
         return render_template("manage.html", user=current_user, user_routes=user_routes,
-            account=account, domain=domain, src_servers=registered_servers.getSourceList(),
-            dst_servers=registered_servers.getDestList()), 200
+            servers=registered_servers.getList(), server_routes=server_routes,
+            src_servers=registered_servers.getSourceList(),
+            dst_servers=registered_servers.getDestList(),
+            account=account, domain=domain), 200
 
     # APIs
     # TODO: install to rabbitmq?
@@ -160,7 +167,7 @@ def ManagementUI(config):
             if current_user.service_ready:
                 return "Already activated."
             else:
-                if registered_users.activate_service(current_user.id):
+                if registered_users.activateService(current_user.id):
                     return "OK"
                 else:
                     return "Failed"
@@ -173,7 +180,7 @@ def ManagementUI(config):
     def deactivate_service():
         try:
             if current_user.service_ready:
-                if registered_users.deactivate_service(current_user.id):
+                if registered_users.deactivateService(current_user.id):
                     return "OK"
                 else:
                     return "Failed"
@@ -189,7 +196,7 @@ def ManagementUI(config):
             if current_user.route_ready:
                 return "Already activated."
             else:
-                if registered_users.activate_route(current_user.id):
+                if registered_users.activateRoute(current_user.id):
                     return "OK"
                 else:
                     return "Failed"
@@ -202,7 +209,7 @@ def ManagementUI(config):
     def deactivate_route():
         try:
             if current_user.route_ready:
-                if registered_users.deactivate_route(current_user.id):
+                if registered_users.deactivateRoute(current_user.id):
                     return "OK"
                 else:
                     return "Failed"
@@ -223,11 +230,11 @@ def ManagementUI(config):
 
         try:
             if local and remote:
-                route = registered_routes.add(current_user.id, local.id, remote.id)
+                route = registered_user_routes.add(current_user.id, local.id, remote.id)
                 if route:
                     return "OK"
 
-                route = registered_routes.update(current_user.id, local.id, remote.id)
+                route = registered_user_routes.update(current_user.id, local.id, remote.id)
                 if route:
                     return "OK"
 
@@ -246,7 +253,7 @@ def ManagementUI(config):
     @login_required
     def show_route():
         try:
-            routes = registered_routes.getRoutes(current_user.id)
+            routes = registered_user_routes.getUserRoutes(current_user.id)
             ret = [(route.src.sid, route.dest.sid) for route in routes]
 
             return str(ret)
