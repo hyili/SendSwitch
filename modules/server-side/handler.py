@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import json
+import base64
 import asyncio
 import time
 import random
@@ -14,10 +15,8 @@ import uuid
 import smtplib
 import datetime
 import traceback
-import email
 import concurrent.futures
 
-from email.header import decode_header
 from aiosmtpd.handlers import Proxy
 from aiosmtpd.smtp import Session
 from aiosmtpd.smtp import Envelope
@@ -58,65 +57,9 @@ class SMTPSessionBundle():
 
         self.status = 0
 
-    def extract_header(self, p):
-        ret = dict()
-        for key in set(p.keys()):
-            # get all the headers which named key
-            value = p.get_all(key, None)
-            # init header part
-            ret[key.lower()] = list()
-            for element in value:
-                pair = decode_header(element)
-                content = ""
-                for (_content, _charset) in pair:
-                    try:
-                        if _charset:
-                            content = "{0} {1}".format(content, _content.decode(_charset))
-                        else:
-                            if isinstance(_content, (bytes, bytearray)):
-                                content = "{0} {1}".format(content, _content.decode())
-                            else:
-                                content = "{0} {1}".format(content, _content)
-                    except:
-                        if isinstance(_content, (bytes, bytearray)):
-                            content = "{0} {1}".format(content, _content.decode())
-                        else:
-                            content = "{0} {1}".format(content, _content)
-
-                ret[key.lower()].insert(0, content)
-
-        return ret
-
-    def extract_payload(self, p):
-        ret = ""
-        # TODO: Can extend more content type here
-        for part in p.walk():
-            if part.get_content_maintype() == "text":
-                charset = part.get_content_charset()
-                try:
-                    if charset:
-                        payload = part.get_payload(decode=True).decode(charset, errors="replace")
-                        ret += payload
-                    else:
-                        payload = part.get_payload(decode=True).decode(errors="replace")
-                        ret += payload
-                except:
-                    payload = part.get_payload(decode=True).decode(errors="replace")
-                    ret += payload
-
-        return ret
-
     def email_translator(self, msg):
-        ret = dict()
-        p = email.message_from_bytes(msg)
+        ret = base64.b64encode(msg).decode()
 
-        # Extracting header
-        ret["header"] = self.extract_header(p)
-
-        # Extracting payload
-        ret["payload"] = self.extract_payload(p)
-
-        # returning
         return ret
 
 class SMTPProxyHandler(Proxy):

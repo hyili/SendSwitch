@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+import base64
+import email
+import json
+from email.header import decode_header
 import requests
 import macro
 
@@ -81,7 +85,7 @@ class SlackProcessor(Processor):
         self.webhooks = webhooks
 
     def target(self, msg, pre_result):
-        assert hasattr(self, "webhooks"), "you must set_webhook() first in your client_config.py."
+        assert hasattr(self, "webhooks"), "you must set_webhook() first before calling run()."
 
         result = pre_result
 
@@ -109,7 +113,7 @@ class WebhookProcessor(Processor):
         self.webhooks = webhooks
 
     def target(self, msg, pre_result):
-        assert hasattr(self, "webhooks"), "you must set_webhook() first in your client_config.py."
+        assert hasattr(self, "webhooks"), "you must set_webhook() first before calling run()."
 
         result = pre_result
 
@@ -137,13 +141,15 @@ class BlacklistWhitelistProcessor(Processor):
         # self.blacklist = ["<test@example.com>"]
         self.blacklist = []
         pass
+
     def set_whitelist(self, path):
         # self.whitelist = ["<test@example.com>"]
         self.whitelist = []
         pass
+
     def target(self, msg, pre_result):
-        assert hasattr(self, "blacklist"), "you must set_blacklist() first in your client_config.py."
-        assert hasattr(self, "whitelist"), "you must set_whitelist() first in your client_config.py."
+        assert hasattr(self, "blacklist"), "you must set_blacklist() first before calling run()."
+        assert hasattr(self, "whitelist"), "you must set_whitelist() first before calling run()."
 
         # set default action
         result = pre_result
@@ -161,3 +167,92 @@ class BlacklistWhitelistProcessor(Processor):
                 return msg, result
 
         return msg, result
+
+# Email Encoder/Decoder
+class EmailDecodeProcessor(Processor):
+    def extract_header(self, p):
+        ret = dict()
+        for key in set(p.keys()):
+            # get all the headers which named key
+            value = p.get_all(key, None)
+            # init header part
+            ret[key.lower()] = list()
+            for element in value:
+                pair = decode_header(element)
+                content = ""
+                for (_content, _charset) in pair:
+                    try:
+                        if _charset:
+                            content = "{0} {1}".format(content, _content.decode(_charset))
+                        else:
+                            if isinstance(_content, (bytes, bytearray)):
+                                content = "{0} {1}".format(content, _content.decode())
+                            else:
+                                content = "{0} {1}".format(content, _content)
+                    except:
+                        if isinstance(_content, (bytes, bytearray)):
+                            content = "{0} {1}".format(content, _content.decode())
+                        else:
+                            content = "{0} {1}".format(content, _content)
+
+                ret[key.lower()].insert(0, content)
+
+        return ret
+
+    def extract_payload(self, p):
+        ret = ""
+        # TODO: Can extend more content type here
+        for part in p.walk():
+            if part.get_content_maintype() == "text":
+                charset = part.get_content_charset()
+                try:
+                    if charset:
+                        payload = part.get_payload(decode=True).decode(charset, errors="replace")
+                        ret += payload
+                    else:
+                        payload = part.get_payload(decode=True).decode(errors="replace")
+                        ret += payload
+                except:
+                    payload = part.get_payload(decode=True).decode(errors="replace")
+                    ret += payload
+
+        return ret
+
+    def target(self, msg, pre_result):
+        ret = dict()
+        origin_msg = base64.b64decode(msg.encode())
+        human_readable_msg = email.message_from_bytes(origin_msg)
+
+        # Extracting header
+        ret["header"] = self.extract_header(human_readable_msg)
+
+        # Extracting payload
+        ret["payload"] = self.extract_payload(human_readable_msg)
+
+        # result
+        result = pre_result
+
+        # returning
+        return ret, result
+
+class RedirectOutputProcessor(Processor):
+    def set_output(self, output):
+        # set output Shared_Queue
+        self.output = output
+
+    # redirect to web output
+    def target(self, msg, pre_result):
+        assert hasattr(self, "output"), "you must set_output() first before calling run()."
+
+        temp_msg = msg
+        result = pre_result
+
+        try:
+            if self.output is not None:
+                json_msg = json.dumps(msg)
+                self.output.send(json_msg)
+        except Exception as e:
+            self.Debug("Error occurred during redirect_output.")
+            self.Debug(e)
+        finally:
+            return msg, result

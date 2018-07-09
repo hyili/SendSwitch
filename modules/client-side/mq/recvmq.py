@@ -9,6 +9,7 @@ import requests
 
 from protocols import Response
 import macro
+from processor import EmailDecodeProcessor, RedirectOutputProcessor
 
 class Receiver():
     def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", port=5672,
@@ -48,6 +49,11 @@ class Receiver():
         self.timeout = timeout
         self.output = output
 
+        # set some default processors
+        self.ED_processor = EmailDecodeProcessor(description="Email Decoder Processor")
+        self.RO_processor = RedirectOutputProcessor(description="Redirect Output Processor")
+        self.RO_processor.set_output(output)
+
         # processors
         self.processors = processors
 
@@ -65,26 +71,15 @@ class Receiver():
 
     # using user-defined processors to handle incoming email
     def email_handler(self, origin_msg, origin_result, processors):
-        msg = self.redirect_output(origin_msg)
+        # result
         result = origin_result
+
+        msg, result = self.ED_processor.run(origin_msg, result)
+        msg, result = self.RO_processor.run(msg, result)
         for processor in processors:
             msg, result = processor.run(msg, result)
 
         return msg, result
-
-    # redirect to web output
-    def redirect_output(self, origin_msg):
-        temp_msg = origin_msg
-
-        try:
-            if self.output is not None:
-                json_msg = json.dumps(origin_msg)
-                self.output.send(json_msg)
-        except Exception as e:
-            self.Debug("Error occurred during redirect_output.")
-            self.Debug(e)
-        finally:
-            return origin_msg
 
     def consume_request(self, channel, method, properties, body):
         try:
