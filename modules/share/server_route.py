@@ -13,7 +13,7 @@ class ServerRoutes():
     def __init__(self, db_host, db_port, db_name, db_user, db_passwd):
         # create sqlalchemy ORM engine
         self.engine = create_engine("mysql+pymysql://{0}:{1}@{2}:{3}/{4}".\
-            format(db_user, db_passwd, db_host, db_port, db_name))
+            format(db_user, db_passwd, db_host, db_port, db_name), pool_recycle=3600)
         self.sessionmaker = sessionmaker(bind=self.engine)
 
     def add(self, source_id, destination_id):

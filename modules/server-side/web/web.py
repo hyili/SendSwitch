@@ -144,18 +144,23 @@ def ManagementUI(config):
         (account, domain) = current_user.get_id().split("@")
         _user_routes = registered_user_routes.getUserRoutes(current_user.id)
         user_routes = dict()
-        for route in _user_routes:
-            user_routes[route.src.sid] = route
+        if _user_routes:
+            for route in _user_routes:
+                user_routes[route.src.sid] = route
 
         _server_routes = registered_server_routes.getServerRoutes()
         server_routes = dict()
-        for route in _server_routes:
-            server_routes[route.src.sid] = route
+        if _server_routes:
+            for route in _server_routes:
+                server_routes[route.src.sid] = route
+
+        servers = registered_servers.getList()
+        src_servers = registered_servers.getSourceList()
+        dst_servers = registered_servers.getDestList()
 
         return render_template("manage.html", user=current_user, user_routes=user_routes,
-            servers=registered_servers.getList(), server_routes=server_routes,
-            src_servers=registered_servers.getSourceList(),
-            dst_servers=registered_servers.getDestList(),
+            servers=servers, server_routes=server_routes,
+            src_servers=src_servers, dst_servers=dst_servers,
             account=account, domain=domain), 200
 
     # APIs
@@ -164,7 +169,7 @@ def ManagementUI(config):
     @login_required
     def activate_service():
         try:
-            if current_user.service_ready:
+            if current_user.serviceStatus():
                 return "Already activated."
             else:
                 if registered_users.activateService(current_user.id):
@@ -179,7 +184,7 @@ def ManagementUI(config):
     @login_required
     def deactivate_service():
         try:
-            if current_user.service_ready:
+            if current_user.serviceStatus():
                 if registered_users.deactivateService(current_user.id):
                     return "OK"
                 else:
@@ -193,7 +198,7 @@ def ManagementUI(config):
     @login_required
     def activate_route():
         try:
-            if current_user.route_ready:
+            if current_user.routeStatus():
                 return "Already activated."
             else:
                 if registered_users.activateRoute(current_user.id):
@@ -208,7 +213,7 @@ def ManagementUI(config):
     @login_required
     def deactivate_route():
         try:
-            if current_user.route_ready:
+            if current_user.routeStatus():
                 if registered_users.deactivateRoute(current_user.id):
                     return "OK"
                 else:
@@ -246,7 +251,9 @@ def ManagementUI(config):
     @app.route("/show/registered_users", methods=["Post"])
     @login_required
     def show_registered_users():
-        return str(registered_users.getEmailList())
+        email_list = registered_users.getEmailList()
+
+        return str(email_list)
 
     # TODO
     @app.route("/show/route", methods=["Post"])
@@ -254,12 +261,15 @@ def ManagementUI(config):
     def show_route():
         try:
             routes = registered_user_routes.getUserRoutes(current_user.id)
-            ret = [(route.src.sid, route.dest.sid) for route in routes]
+            if routes:
+                ret = [(route.src.sid, route.dest.sid) for route in routes]
+            else:
+                ret = []
 
             return str(ret)
         except Exception as e:
             print(e)
-            return "Some error occurred"
+            return "Something wrong"
 
     # TODO
     @app.route("/flush", methods=["Post"])
@@ -269,6 +279,14 @@ def ManagementUI(config):
             return "Wait for implement"
         except Exception as e:
             return "Something wrong"
+
+    # Error Handler
+    def error_page(subject, content):
+        return "{0} {1}".format(subject, content)
+
+    @app.errorhandler(Exception)
+    def error_handler(error):
+        return error_page("Error", "Something went wrong."), 500
 
     @app.route("/monitor")
     def monitor():

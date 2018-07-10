@@ -39,3 +39,9 @@ class User(Base):
     # Flask-Login get_id method
     def get_id(self):
         return "{0}@{1}".format(self.account, self.domain)
+
+    def serviceStatus(self):
+        return self.service_ready
+
+    def routeStatus(self):
+        return self.route_ready
