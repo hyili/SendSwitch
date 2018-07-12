@@ -10,6 +10,7 @@ import requests
 from protocols import Response
 import macro
 from processor import EmailDecodeProcessor, RedirectOutputProcessor
+from message import Message
 
 class Receiver():
     def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", port=5672,
@@ -52,7 +53,7 @@ class Receiver():
         # set some default processors
         self.ED_processor = EmailDecodeProcessor(description="Email Decoder Processor")
         self.RO_processor = RedirectOutputProcessor(description="Redirect Output Processor")
-        self.RO_processor.set_output(output)
+        self.RO_processor.setOutput(output)
 
         # processors
         self.processors = processors
@@ -70,16 +71,18 @@ class Receiver():
             print(" [*] {0}".format(msg))
 
     # using user-defined processors to handle incoming email
-    def email_handler(self, origin_msg, origin_result, processors):
-        # result
-        result = origin_result
+    def email_handler(self, msg, processors):
+        # Email Decoder
+        current_msg = self.ED_processor.run(msg)
 
-        msg, result = self.ED_processor.run(origin_msg, result)
-        msg, result = self.RO_processor.run(msg, result)
+        # Redirect to Output
+        current_msg = self.RO_processor.run(current_msg)
+
+        # Start user's processors
         for processor in processors:
-            msg, result = processor.run(msg, result)
+            current_msg = processor.run(current_msg)
 
-        return msg, result
+        return current_msg
 
     def consume_request(self, channel, method, properties, body):
         try:
@@ -89,9 +92,12 @@ class Receiver():
             # Debug message
             self.Debug("Receive {0}".format(data))
 
+            # Build a Message object with request protocol "data", and "result"
+            msg = Message(data["data"], data["result"])
+
             # email handler
             current_processors = list(self.processors)
-            msg, result = self.email_handler(data["data"], data["result"], current_processors)
+            current_msg = self.email_handler(msg, current_processors)
 
             # resoponse message
             timestamp = time.time()
@@ -100,7 +106,7 @@ class Receiver():
             expire = self.timeout * 1000
 
             response = Response(timestamp=timestamp, expire=expire,
-                result=result)
+                result=current_msg.getResult())
 
             # send response backto default exchanger
             channel.basic_publish(exchange='',

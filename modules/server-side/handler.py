@@ -89,7 +89,7 @@ class SMTPProxyHandler(Proxy):
             self.output.send(" [{0:20s}] {1:36s}, {2:26s}, {3}".
                 format(self.current_server.sid, header, timestamp, msg))
 
-    def check_SMTP_result(self, bundle, SMTP_result):
+    def check_SMTP_session_bundle(self, bundle, SMTP_result):
         # Check if sending operation went wrong
         if bundle.status != -1:
             if SMTP_result[0] == 250:
@@ -231,7 +231,7 @@ class SMTPProxyHandler(Proxy):
                     SMTP_result = r.result()
 
                 # Check result
-                result = self.check_SMTP_result(bundle, SMTP_result)
+                result = self.check_SMTP_session_bundle(bundle, SMTP_result)
 
         except Exception as e:
             return "471 Something wrong happened, {0}".format(e)
@@ -510,27 +510,26 @@ class SMTPMQHandler(SMTPProxyHandler):
                 SMTP_result = self.send_email(bundle, user_profile)
             elif result["result"] == macro.DENY:
                 bundle.status = -1
-                SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
-                    format(result["result"]))
+                SMTP_result = (451, "Rejected by receiver's content filter, reason: DENY")
             elif result["result"] == macro.SPAM:
                 bundle.status = -1
-                SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
-                    format(result["result"]))
+                SMTP_result = (451, "Rejected by receiver's content filter, reason: SPAM (NOT IMPLEMENT)")
             elif result["result"] == macro.VIRUS:
                 bundle.status = -1
-                SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
-                    format(result["result"]))
+                SMTP_result = (451, "Rejected by receiver's content filter, reason: VIRUS (NOT IMPLEMENT)")
             elif result["result"] == macro.FORWARD:
                 bundle.status = -1
-                SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
-                    format(result["result"]))
+                SMTP_result = (451, "Rejected by receiver's content filter, reason: FORWARD (NOT IMPLEMENT)")
+            elif result["result"] == macro.QUARANTINE:
+                bundle.status = -1
+                SMTP_result = (451, "Rejected by receiver's content filter, reason: QUARATINE (NOT IMPLEMENT)")
             else:
                 bundle.status = -1
                 SMTP_result = (451, "Rejected by receiver's content filter, reason: {0}".
                     format(result["result"]))
 
             # Check result and update bundle status
-            result = self.check_SMTP_result(bundle, SMTP_result)
+            result = self.check_SMTP_session_bundle(bundle, SMTP_result)
         except KeyError as e:
             self.Debug("No such key {0} in client's response.".format(e), header=bundle.corr_id)
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
+import subprocess
 import base64
 import email
 import json
+import copy
 from email.header import decode_header
 import requests
 import macro
@@ -35,62 +37,57 @@ class Processor():
         return self.enable
 
     # customized function here
-    def target(self, msg, pre_result):
+    def target(self, msg):
         # define your function below
-        result = pre_result
+        return msg
 
-        return msg, result
-
-    def run(self, msg, pre_result):
+    def run(self, msg):
         # check if the module is enabled
         if self.is_activate():
             self.Debug("{0} is active, Start to process.".format(self.__class__.__name__))
         else:
             self.Debug("{0} is inactive, Skipped.".format(self.__class__.__name__))
-            return msg, pre_result
+            return msg
 
-        # temporarily store
-        temp_msg = msg
-        temp_result = pre_result
+        # Build a new_msg using for customized target
+        new_msg = copy.deepcopy(msg)
 
         # run target function
         try:
             # parse to target
-            ret_msg, ret_result = self.target(msg, pre_result)
+            ret_msg = self.target(new_msg)
 
             # TODO: check msg structure?
             # if nothing comes back
-            if ret_msg is None or ret_result is None:
+            if ret_msg is None:
                 self.Debug("Nothing returns back, returning the previous arguments.")
-                ret_msg = temp_msg
-                ret_result = temp_result
+                ret_msg = msg
         except Exception as e:
-            ret_msg = temp_msg
-            ret_result = temp_result
+            ret_msg = msg
             self.Debug("Some error occurred during {0}... Error shows below, Skipped this function".format(self.__class__.__name__))
             self.Debug(e)
         finally:
-            return ret_msg, ret_result
+            return ret_msg
 
 # Echo Processor Sample
 class EchoProcessor(Processor):
-    def target(self, msg, pre_result):
-        return msg, pre_result
+    def target(self, msg):
+        print("Echo Here")
+        return msg
 
 # Post to Slack Processor Sample
 class SlackProcessor(Processor):
-    def set_webhook(self, webhooks):
+    def setWebhooks(self, webhooks):
         assert isinstance(webhooks, list), "webhooks must be a list."
 
         self.webhooks = webhooks
 
-    def target(self, msg, pre_result):
-        assert hasattr(self, "webhooks"), "you must set_webhook() first before calling run()."
+    def target(self, msg):
+        assert hasattr(self, "webhooks"), "you must call setWebhooks() first before calling run()."
 
-        result = pre_result
-
+        current_msg = msg.getCurrentMsg()
         data = {
-            "text": str("```\n"+str(msg["header"]["subject"])+"\n```")
+            "text": "```\n{0}\n```".format(str(current_msg["header"]["subject"]))
         }
 
         # post to slack incoming webhook
@@ -103,19 +100,17 @@ class SlackProcessor(Processor):
             print(r.status_code)
             print(r.text)
 
-        return msg, result
+        return msg
 
 # Post to Outer Webhook Processor Sample
 class WebhookProcessor(Processor):
-    def set_webhook(self, webhooks):
-        assert isinstance(webhooks, list), "webhooks must be a list."
+    def setWebhooks(self, webhooks):
+        assert isinstance(webhooks, list), "webhooks must call be a list."
 
         self.webhooks = webhooks
 
-    def target(self, msg, pre_result):
-        assert hasattr(self, "webhooks"), "you must set_webhook() first before calling run()."
-
-        result = pre_result
+    def target(self, msg):
+        assert hasattr(self, "webhooks"), "you must call setWebhooks() first before calling run()."
 
         # defined your own data format
         data = str(msg)
@@ -133,43 +128,43 @@ class WebhookProcessor(Processor):
             else:
                 print(r.text)
 
-        return msg, result
+        return msg
 
 # Blacklist/Whitelist sample
 class BlacklistWhitelistProcessor(Processor):
-    def set_blacklist(self, path):
+    def setBlacklist(self, path):
         # self.blacklist = ["<test@example.com>"]
         self.blacklist = []
         pass
 
-    def set_whitelist(self, path):
+    def setWhitelist(self, path):
         # self.whitelist = ["<test@example.com>"]
         self.whitelist = []
         pass
 
-    def target(self, msg, pre_result):
-        assert hasattr(self, "blacklist"), "you must set_blacklist() first before calling run()."
-        assert hasattr(self, "whitelist"), "you must set_whitelist() first before calling run()."
-
-        # set default action
-        result = pre_result
+    def target(self, msg):
+        assert hasattr(self, "blacklist"), "you must call setBlacklist() first before calling run()."
+        assert hasattr(self, "whitelist"), "you must call setWhitelist() first before calling run()."
 
         for address in self.whitelist:
             if address in msg["header"]["from"]:
                 print("Address in whitelist")
-                result = macro.PASS
-                return msg, result
+                msg.setResult(macro.PASS)
+                return msg
 
         for address in self.blacklist:
             if address in msg["header"]["from"]:
                 print("Address in blacklist")
-                result = macro.DENY
-                return msg, result
+                msg.setResult(macro.DENY)
+                return msg
 
-        return msg, result
+        return msg
 
 # Email Encoder/Decoder
 class EmailDecodeProcessor(Processor):
+    def parse_msg_from_bytes(self, msg):
+        return email.message_from_bytes(msg)
+
     def extract_header(self, p):
         ret = dict()
         for key in set(p.keys()):
@@ -218,41 +213,99 @@ class EmailDecodeProcessor(Processor):
 
         return ret
 
-    def target(self, msg, pre_result):
-        ret = dict()
-        origin_msg = base64.b64decode(msg.encode())
-        human_readable_msg = email.message_from_bytes(origin_msg)
+    def target(self, msg):
+        current_msg = dict()
 
-        # Extracting header
-        ret["header"] = self.extract_header(human_readable_msg)
+        try:
+            # Decode the msg
+            decoded_msg = base64.b64decode(msg.getOriginMsg().encode())
 
-        # Extracting payload
-        ret["payload"] = self.extract_payload(human_readable_msg)
+            # Decode the email
+            human_readable_msg = self.parse_msg_from_bytes(decoded_msg)
 
-        # result
-        result = pre_result
+            # Extracting header
+            current_msg["header"] = self.extract_header(human_readable_msg)
+
+            # Extracting payload
+            current_msg["payload"] = self.extract_payload(human_readable_msg)
+
+            # store the result into msg
+            msg.setDecodedMsg(decoded_msg)
+            msg.setCurrentMsg(current_msg)
+        except Exception as e:
+            return None
 
         # returning
-        return ret, result
+        return msg
+
+class SpamAssassinProcessor(Processor):
+    def extract_result(self, result):
+        ED_processor = EmailDecodeProcessor(description="just using for decode spamassassin's result.")
+        email = ED_processor.parse_msg_from_bytes(result)
+        header = ED_processor.extract_header(email)
+
+        return header
+
+    def target(self, msg):
+        process = subprocess.Popen(["spamassassin"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        output, error = process.communicate(input=msg.getDecodedMsg())
+
+        header = self.extract_result(output)
+
+        # return result
+        try:
+            header["x-spam-status"][0].split(",")[0].lower().index("yes")
+
+            print("SPAM found.")
+            msg.setResult(macro.SPAM)
+        except ValueError:
+            print("Not SPAM.")
+        finally:
+            return msg
+
+class ClamAVProcessor(Processor):
+    def extract_result(self, result):
+        reports = result.decode().split("\n")
+        r = dict()
+
+        for report in reports:
+            try:
+                temp = report.split("\n")[0].split(":")
+                r[temp[0]] = temp[1]
+            except:
+                continue
+
+        return r
+
+    def target(self, msg):
+        process = subprocess.Popen(["clamscan", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        output, error = process.communicate(input=msg.getDecodedMsg())
+
+        ret = self.extract_result(output)
+
+        # return result
+        try:
+            ret["Infected files"].lower().index("1")
+
+            print("VIRUS found.")
+            msg.setResult(macro.VIRUS)
+        except ValueError:
+            print("Not VIRUS.")
+        finally:
+            return msg
 
 class RedirectOutputProcessor(Processor):
-    def set_output(self, output):
+    def setOutput(self, output):
+        # TODO: check self.output type
         # set output Shared_Queue
         self.output = output
 
     # redirect to web output
-    def target(self, msg, pre_result):
-        assert hasattr(self, "output"), "you must set_output() first before calling run()."
+    def target(self, msg):
+        assert hasattr(self, "output"), "you must call setOutput() first before calling run()."
 
-        temp_msg = msg
-        result = pre_result
+        if self.output is not None:
+            json_msg = json.dumps(msg.getCurrentMsg())
+            self.output.send(json_msg)
 
-        try:
-            if self.output is not None:
-                json_msg = json.dumps(msg)
-                self.output.send(json_msg)
-        except Exception as e:
-            self.Debug("Error occurred during redirect_output.")
-            self.Debug(e)
-        finally:
-            return msg, result
+        return msg

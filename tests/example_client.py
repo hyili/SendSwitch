@@ -7,6 +7,12 @@ import sys
 hostname = "localhost"
 port = 8025
 
+# if SPAM_ENABLE is True, then a GTUBE pattern will be sent
+SPAM_ENABLE = False
+VIRUS_ENABLE = True
+GTUBE = "XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X"
+EICAR = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
+
 client = SMTP(hostname, port)
 try:
     if len(sys.argv) >= 4:
@@ -21,17 +27,26 @@ except:
     print("       This will send 3 test emails from test@example1.com to test@example2.com and test@example3.com.")
     exit()
 
-print("Start to insert emails.")
-for i in range(0, number, 1):
-    try:
-        r1 = client.sendmail(mailer, emails,
-"""From: Anne Person <test@example1.com>
+content_template = """From: Anne Person <test@example1.com>
 To: Bart Person <test@example2.com>
 Subject: A test
 Message-ID: whoowhoohaha
 
-Hi Bart, this is Anne.
-""")
+{0}"""
+
+if SPAM_ENABLE:
+    print("Start to insert spam test emails.")
+    content = content_template.format(GTUBE)
+elif VIRUS_ENABLE:
+    print("Start to insert virus test emails.")
+    content = content_template.format(EICAR)
+else:
+    print("Start to insert emails.")
+    content = content_template.format("Hi Bart, this is Anne.")
+
+for i in range(0, number, 1):
+    try:
+        r1 = client.sendmail(mailer, emails, content)
     except Exception as e:
         print(e)
 
