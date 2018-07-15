@@ -40,7 +40,7 @@ class ClientController():
                 self.Debug("Wait for restarting.")
                 if self.interrupt_event.wait(timeout=self.retry_interval):
                     break
-                self.Debug("Restarting.")
+                self.Debug("Restarted.")
 
     def start(self):
         self.thread = threading.Thread(target=self.run, daemon=True)

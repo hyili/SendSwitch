@@ -17,7 +17,8 @@ class SharedQueue():
         except queue.Empty as e:
             ret = None
         except Exception as e:
-            print(" [*] {0}".format(e))
+            print("Something wrong happened during ShardQueue.recv(), reason: {0}.".
+                format(e))
             ret = None
         finally:
             return ret

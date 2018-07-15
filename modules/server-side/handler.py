@@ -48,13 +48,7 @@ class SMTPSessionBundle():
         self.session = session
         self.envelope = copy.deepcopy(envelope)
         self.envelope.rcpt_tos = [rcpt]
-        try:
-            self.data = self.email_translator(self.envelope.original_content)
-        except Exception as e:
-            print(" [*] Decode error occurred. {0}".format(e))
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            print(traceback.print_exc())
-
+        self.data = self.email_translator(self.envelope.original_content)
         self.status = 0
 
     def email_translator(self, msg):
@@ -75,6 +69,7 @@ class SMTPProxyHandler(Proxy):
         self.registered_servers = config.kwargs["registered_servers"]
         self.registered_users = config.kwargs["registered_users"]
         self.registered_user_routes = config.kwargs["registered_user_routes"]
+        self.logger = config.kwargs["logger"]
 
         self.silent_mode = silent_mode
         self.SMTP_session_bundles = {}
@@ -84,42 +79,39 @@ class SMTPProxyHandler(Proxy):
 
     def Debug(self, msg, header="*"):
         if not self.silent_mode:
-            timestamp = str(datetime.datetime.now())
-            print(" [{0:20s}] {1:36s}, {2:26s}, {3:s}".format(self.current_server.sid, header, timestamp, msg))
-            self.output.send(" [{0:20s}] {1:36s}, {2:26s}, {3}".
-                format(self.current_server.sid, header, timestamp, msg))
+            timestamp = str(datetime.datetime.utcnow())
+            self.logger.info(" [{0:25s}] {1:36s}, {2:26s}, {3:s}".format(self.current_server.sid, header, timestamp, msg))
+            self.output.send(" [{0:25s}] {1:36s}, {2:26s}, {3:s}".format(self.current_server.sid, header, timestamp, msg))
 
     def check_SMTP_session_bundle(self, bundle, SMTP_result):
         # Check if sending operation went wrong
         if bundle.status != -1:
             if SMTP_result[0] == 250:
-                self.Debug("Successfully send out. {0}".
+                self.Debug("Successfully sent out, reason: {0}.".
                     format(SMTP_result), header=bundle.corr_id)
             elif SMTP_result[0] < 0:
-                self.Debug("Something went wrong. {0}".
+                self.Debug("Something wrong happened during check_SMTP_session_bundle(), reason: {0}.".
                     format(SMTP_result), header=bundle.corr_id)
 
                 return "471 Something wrong happened to {0}, next hop status {1}".format(bundle.corr_id, str(SMTP_result))
             else:
-                self.Debug("Something happened. {0}".
+                self.Debug("Something wrong happened during check_SMTP_session_bundle(), reason: {0}.".
                     format(SMTP_result), header=bundle.corr_id)
 
                 return "471 Something wrong happened to {0}, next hop status {1}".format(bundle.corr_id, str(SMTP_result))
         else:
-            self.Debug("Remove it. {0}".
+            self.Debug("Remove it, reason: {0}".
                 format(SMTP_result), header=bundle.corr_id)
 
         # Pop finished job from SMTP_session_bundles
         self.finish(bundle.corr_id)
 
-        return "250 OK saved as {0}, next hop status {1}".format(bundle.corr_id, str(SMTP_result))
+        return "250 OK saved as {0}, next hop status {1}.".format(bundle.corr_id, str(SMTP_result))
 
     def finish(self, corr_id):
         bundle = self.SMTP_session_bundles.pop(corr_id, None)
 
         user_profile = self.registered_users.get(bundle.rcpt)
-
-        # TODO: remove from queuing list
 
     def send_email(self, bundle, user_profile):
         # TODO: loop prevention
@@ -128,18 +120,14 @@ class SMTPProxyHandler(Proxy):
         next_hop_server_hostname = self.next_hop_server.hostname
         next_hop_server_port = self.next_hop_server.port
 
-        if user_profile.route_ready:
-            #user_next_hop_server = self.next_hop_server
-            #next_hop_server_sid = user_next_hop_server.sid
-            #next_hop_server_hostname = user_next_hop_server.hostname
-            #next_hop_server_port = user_next_hop_server.port
+        if user_profile and user_profile.route_ready:
             user_route = self.registered_user_routes.get(user_profile.id, self.current_server.id)
             if user_route:
                 next_hop_server_sid = user_route.dest.sid
                 next_hop_server_hostname = user_route.dest.hostname
                 next_hop_server_port = user_route.dest.port
 
-        self.Debug("Next hop id: {0}, host: {1}, port: {2}".
+        self.Debug("Next hop id: {0}, host: {1}, port: {2}.".
             format(next_hop_server_sid, next_hop_server_hostname,
             next_hop_server_port), header=bundle.corr_id)
 
@@ -161,7 +149,8 @@ class SMTPProxyHandler(Proxy):
         try:
             refused = self._send_email(bundle.envelope.mail_from, bundle.envelope.rcpt_tos, data, next_hop_server_hostname, next_hop_server_port)
         except Exception as e:
-            return (471, "Failed. reason: {0}".format(e))
+            self.Debug("Something wrong happened during send_email(), reason: {0}.".format(e), header=bundle.corr_id)
+            return (471, "Failed, reason: {0}".format(e))
 
         # TODO: this will have problem when group mailing is implemented
         return refused[bundle.rcpt]
@@ -219,6 +208,11 @@ class SMTPProxyHandler(Proxy):
                 # Monitor list
                 bundle = SMTPSessionBundle(corr_id, rcpt, server, session, envelope)
                 self.SMTP_session_bundles[corr_id] = bundle
+
+                self.Debug("Received from SMTP. from: {0}, to: {1}".\
+                    format(bundle.envelope.mail_from, bundle.rcpt),
+                    header=corr_id
+                )
 
                 # Check if the receiver is registered
                 user_profile = self.registered_users.get(rcpt)
@@ -286,7 +280,7 @@ class SMTPMQHandler(SMTPProxyHandler):
             if not os.path.isdir(self.temp_origin_directory):
                 os.mkdir(self.temp_origin_directory, 0o700)
         except Exception as e:
-            self.Debug("Something went wrong during initialization of backup directory. {0}".format(e))
+            self.Debug("Something wrong happened during init(), reason: {0}.".format(e))
             self.Debug("Disable backup mode.")
             self.backup_enable = False
 
@@ -295,11 +289,11 @@ class SMTPMQHandler(SMTPProxyHandler):
 
         if self.backup_enable:
             try:
-                self.Debug("Remove from backup", header=corr_id)
                 os.remove("{0}{1}".format(self.temp_envelope_directory, bundle.corr_id))
                 os.remove("{0}{1}".format(self.temp_origin_directory, bundle.corr_id))
+                self.Debug("Removed.", header=corr_id)
             except Exception as e:
-                self.Debug("Remove failed. Reason: {0}".format(e), header=corr_id)
+                self.Debug("Something wrong happened during finish(), reason: {0}.".format(e), header=corr_id)
 
         user_profile = self.registered_users.get(bundle.rcpt)
 
@@ -322,14 +316,16 @@ class SMTPMQHandler(SMTPProxyHandler):
                 with open("{0}{1}".format(self.temp_origin_directory, bundle.corr_id), "wb") as fo:
                     # write original email content
                     fo.write(bundle.envelope.original_content)
+
+                self.Debug("Backuped.", header=data["corr_id"])
         except Exception as e:
-            self.Debug("Something went wrong during backup. {0}".format(e))
+            self.Debug("Something wrong happened during backup(), reason: {0}.".format(e), header=data["corr_id"])
             self.Debug("Reinitialize.")
             try:
                 self.init()
                 self.backup(bundle)
             except Exception as ee:
-                self.Debug("Failed again. {0}".format(ee))
+                self.Debug("Failed again after reinitialization. {0}".format(ee), header=data["corr_id"])
                 self.Debug("Disable backup mode.")
                 self.backup_enable = False
 
@@ -359,7 +355,7 @@ class SMTPMQHandler(SMTPProxyHandler):
                     )
                     self.SMTP_session_bundles[data["corr_id"]] = bundle
 
-                    self.Debug("Recover from: {0} to: {1}".format(
+                    self.Debug("Recovered. from: {0} to: {1}.".format(
                         data["envelope_mailfrom"],
                         data["envelope_rcptto"]
                     ), header=data["corr_id"])
@@ -375,7 +371,7 @@ class SMTPMQHandler(SMTPProxyHandler):
                     # Send message to MQ
                     self.send(bundle, user_profile=user_profile)
                 except Exception as e:
-                    print(e)
+                    self.Debug("Something wrong happened during recovery(), reason: {0}.".format(e), header=filename)
 
     def send(self, bundle, user_profile=None, direct=False):
         rcpt = "others"
@@ -410,11 +406,13 @@ class SMTPMQHandler(SMTPProxyHandler):
                     user_profile=user_profile,
                     host=self.MQ_host,
                     port=self.MQ_port,
-                    silent_mode=True)
+                    logger=self.logger,
+                    silent_mode=True
+                )
                 self.MQ_handler_bundles[rcpt] = MQHandlerBundle(rcpt, sender)
             except Exception as e:
                 # Wait for timeout_mod to resend
-                self.Debug("Error occurred during sendmq Sender setup. {0}".format(e))
+                self.Debug("Something wrong happened during _send(), reason: {0}.".format(e), header=bundle.corr_id)
                 return
 
         sender = self.MQ_handler_bundles[rcpt].sender
@@ -423,16 +421,10 @@ class SMTPMQHandler(SMTPProxyHandler):
         ret = sender.send_msg(bundle.data, result=macro.PENDING, corr_id=bundle.corr_id)
 
         if ret:
-            self.Debug("Send from: {0}, to: {1}".format(
-                bundle.envelope.mail_from,
-                bundle.rcpt
-            ), header=bundle.corr_id)
+            self.Debug("Sent to MessageQueue.", header=bundle.corr_id)
         else:
             # Wait for timeout_mod to resend
-            self.Debug("Failed to send message from: {0}, to: {1}".format(
-                bundle.envelope.mail_from,
-                bundle.rcpt
-            ), header=bundle.corr_id)
+            self.Debug("Failed to send.", header=bundle.corr_id)
 
     # http://aiosmtpd.readthedocs.io/en/latest/aiosmtpd/docs/handlers.html#handler-hooks
     # HELO Command
@@ -471,6 +463,11 @@ class SMTPMQHandler(SMTPProxyHandler):
                 # Monitor list
                 bundle = SMTPSessionBundle(corr_id, rcpt, server, session, envelope)
                 self.SMTP_session_bundles[corr_id] = bundle
+
+                self.Debug("Received from SMTP. from: {0}, to: {1}".\
+                    format(bundle.envelope.mail_from, bundle.rcpt),
+                    header=corr_id
+                )
 
                 # Doing backup here to prepare for error recovery
                 if self.backup_enable:
@@ -557,9 +554,7 @@ class SMTPMQHandler(SMTPProxyHandler):
                     bundle = self.SMTP_session_bundles[corr_id]
                     user_profile = self.registered_users.get(bundle.rcpt)
 
-                    self.Debug("Receive from: {0}, to: {1}".format(
-                        bundle.envelope.mail_from, bundle.rcpt),header=corr_id
-                    )
+                    self.Debug("Received from MessageQueue.", header=corr_id)
 
                     # Sol.1 Apply the action that client told us
                     #await self.apply_action(bundle, result, user_profile)
@@ -586,6 +581,7 @@ class SMTPMQHandler(SMTPProxyHandler):
             try:
                 self.handler = returnmq.Receiver(host=self.MQ_host,
                     port=self.MQ_port,
+                    logger=self.logger,
                     silent_mode=True
                 )
                 await self.returnmq_executor()
@@ -597,7 +593,7 @@ class SMTPMQHandler(SMTPProxyHandler):
             except Exception as e:
                 for subtask in self.subtasks:
                     subtask.cancel()
-                self.Debug("Error occurred during returnmq Receiver execution. {0}".format(e))
+                self.Debug("Something wrong happened during returnmq_mod(), reason: {0}.".format(e))
                 self.Debug("Wait for restarting.")
                 await asyncio.sleep(self.retry_interval)
                 self.Debug("Restarting.")

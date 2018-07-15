@@ -20,7 +20,7 @@ class UserRoute(Base):
         self.uid = uid
         self.source_id = source_id
         self.destination_id = destination_id
-        self.created_at = datetime.datetime.now()
+        self.created_at = datetime.datetime.utcnow()
 
 class ServerRoute(Base):
     __tablename__ = "server_route"
@@ -34,4 +34,4 @@ class ServerRoute(Base):
     def __init__(self, source_id, destination_id):
         self.source_id = source_id
         self.destination_id = destination_id
-        self.created_at = datetime.datetime.now()
+        self.created_at = datetime.datetime.utcnow()

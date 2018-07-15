@@ -67,6 +67,7 @@ config = server_config.config
 
 servers = config.kwargs["registered_servers"]
 users = config.kwargs["registered_users"]
+logger = config.kwargs["logger"]
 default_user_routes = config.kwargs["default_user_routes"]
 backup_enable = config.kwargs["backup_enable"]
 temp_directory = config.kwargs["temp_directory"]
@@ -89,7 +90,7 @@ for server_id in server_ids:
     try:
         next_hop_server_id = default_user_routes[server_id]
     except Exception as e:
-        print(" [*] {0}".format(e))
+        logger.info(" [*] {0}".format(e))
         quit()
     finally:
         SMTPD_proxy_controllers.append(
@@ -101,7 +102,7 @@ for server_id in server_ids:
         )
 
 try:
-    print(" [*] Waiting for emails. To exit press CTRL+C")
+    logger.info(" [*] Waiting for emails. To exit press CTRL+C")
 
     # Need to start proxy first
     for SMTPD_proxy_controller in SMTPD_proxy_controllers:
@@ -109,17 +110,17 @@ try:
     SMTPD_MQ_controller.start()
     web.ManagementUI(config)
 
-    print(" [*] Quit.")
+    logger.info(" [*] Quit.")
     SMTPD_MQ_controller.stop()
     for SMTPD_proxy_controller in SMTPD_proxy_controllers:
         SMTPD_proxy_controller.stop()
 except KeyboardInterrupt:
-    print(" [*] Signal Catched. Quit.")
+    logger.info(" [*] Signal Catched. Quit.")
     SMTPD_MQ_controller.stop()
     for SMTPD_proxy_controller in SMTPD_proxy_controllers:
         SMTPD_proxy_controller.stop()
 except Exception as e:
-    print(" [*] {0}".format(e))
+    logger.info(" [*] {0}".format(e))
     SMTPD_MQ_controller.stop()
     for SMTPD_proxy_controller in SMTPD_proxy_controllers:
         SMTPD_proxy_controller.stop()

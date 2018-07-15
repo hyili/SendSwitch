@@ -30,12 +30,14 @@ processors = [processor_1, processor_2, processor_3, processor_4, processor_5, p
 output = SharedQueue()
 
 # Config setup
-config = Config(auth={"vhost": "vhost", "user": "user", "password": "password"},
+config = Config(framework_name="framework_name",
+    auth={"vhost": "vhost", "user": "user", "password": "password"},
     processors=processors,
     MQ_host="localhost",
     MQ_port=5672,
     web_host="localhost",
     web_port=61666,
+    web_secret_key="Th151553cr3tK3y",
     retry_interval=20,
     output=output,
     silent_mode=False

@@ -10,19 +10,25 @@ from model.route import UserRoute
 from model.server import Server
 
 class UserRoutes():
-    def __init__(self, db_host, db_port, db_name, db_user, db_passwd):
+    def __init__(self, logger, db_host, db_port, db_name, db_user, db_passwd):
         # create sqlalchemy ORM engine
         self.engine = create_engine("mysql+pymysql://{0}:{1}@{2}:{3}/{4}".\
             format(db_user, db_passwd, db_host, db_port, db_name), pool_recycle=3600)
         self.sessionmaker = sessionmaker(bind=self.engine)
+
+        # logger setup
+        self.logger = logger
+
+    def Debug(self, msg):
+        self.logger.info(" [*] {0}".format(msg))
 
     def add(self, uid, source_id, destination_id):
         if not (uid and source_id and destination_id):
             return None
 
         route = self.get(uid, source_id)
+        # if route exists
         if route:
-            print("route {0} for user {1} exists.".format(source_id, uid))
             return None
 
         route = UserRoute(uid, source_id, destination_id)
@@ -33,7 +39,7 @@ class UserRoutes():
         except Exception as e:
             session.rollback()
             route = None
-            print(e)
+            self.Debug("Something wrong happened during add(), reason: {0}.".format(e))
 
         session.close()
 
@@ -47,12 +53,12 @@ class UserRoutes():
         session = self.sessionmaker()
         try:
             session.query(UserRoute).filter_by(uid=uid, source_id=source_id).\
-                update({"destination_id": destination_id, "updated_at": datetime.datetime.now()})
+                update({"destination_id": destination_id, "updated_at": datetime.datetime.utcnow()})
             session.commit()
         except Exception as e:
             session.rollback()
             ret = False
-            print(e)
+            self.Debug("Something wrong happened during update(), reason: {0}.".format(e))
 
         session.close()
 
@@ -74,9 +80,11 @@ class UserRoutes():
                 one()
         except sqlalchemy.orm.exc.MultipleResultsFound as e:
             raise Exception("Database record error. {0}".format(e))
+        except sqlalchemy.orm.exc.NoResultFound as e:
+            route = None
         except Exception as e:
             route = None
-            print(e)
+            self.Debug("Something wrong happened during get(), reason: {0}.".format(e))
 
         session.close()
 
@@ -96,9 +104,11 @@ class UserRoutes():
                 join(dest, dest.id==UserRoute.destination_id).\
                 filter(UserRoute.uid == uid).\
                 all()
+        except sqlalchemy.orm.exc.NoResultFound as e:
+            routes = list()
         except Exception as e:
             routes = None
-            print(e)
+            self.Debug("Something wrong happened during getUserRoutes(), reason: {0}.".format(e))
 
         session.close()
 

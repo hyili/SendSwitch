@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
+import logging
+
 from config_loader import Config
 from shared_queue import SharedQueue
-import user_profile
-import server_profile
-import user_route
-import server_route
+from model import user_profile, server_profile, user_route, server_route
 
 # DB setup
 db_host = "localhost"
@@ -14,8 +13,22 @@ db_name = "db_name"
 db_user = "db_user"
 db_passwd = "db_passwd"
 
+# Logger setup
+logger = logging.getLogger("Application-Logger")
+logger.setLevel(logging.DEBUG)
+
+file_handler = logging.FileHandler("/tmp/PSF.log")
+file_handler.setLevel(logging.DEBUG)
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
+
+# TODO: formatter here
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
+
 # Server setup
-servers = server_profile.Servers(db_host=db_host, db_port=db_port, db_name=db_name,
+servers = server_profile.Servers(logger=logger, db_host=db_host, db_port=db_port, db_name=db_name,
     db_user=db_user, db_passwd=db_passwd)
 
 # For Postfix to inject email
@@ -43,24 +56,24 @@ if not MQ:
 
 # Server next hop setup
 default_user_routes = {
-    "Postfix-incoming-node": "Message-Queue-node",
+    "Postfix-incoming-node": "Postfix-outgoing-node",
     "Message-Queue-node": "Postfix-outgoing-node",
     "Amavisd-new-incoming-node": "Postfix-outgoing-node"
 }
 
 # Server Route setup
-server_routes = server_route.ServerRoutes(db_host=db_host, db_port=db_port, db_name=db_name,
-    db_user=db_user, db_passwd=db_passwd)
+server_routes = server_route.ServerRoutes(logger=logger, db_host=db_host, db_port=db_port,
+    db_name=db_name, db_user=db_user, db_passwd=db_passwd)
 
 server_routes.add(Ao.id, Ai.id)
 
 # User setup with default route settings
-users = user_profile.Users(db_host=db_host, db_port=db_port, db_name=db_name,
+users = user_profile.Users(logger=logger, db_host=db_host, db_port=db_port, db_name=db_name,
     db_user=db_user, db_passwd=db_passwd)
 
 # User Route setup
-user_routes = user_route.UserRoutes(db_host=db_host, db_port=db_port, db_name=db_name,
-    db_user=db_user, db_passwd=db_passwd)
+user_routes = user_route.UserRoutes(logger=logger, db_host=db_host, db_port=db_port,
+    db_name=db_name, db_user=db_user, db_passwd=db_passwd)
 
 # LDAP settings
 ldap_settings = dict()
@@ -75,16 +88,19 @@ output = SharedQueue()
 flush = SharedQueue()
 
 # Config setup
-config = Config(registered_servers=servers,
+config = Config(framework_name="framework_name",
+    registered_servers=servers,
     registered_server_routes=server_routes,
     registered_users=users,
     registered_user_routes=user_routes,
+    logger=logger,
     email_domain="hyili.idv.tw",
     host_domain="hyili.idv.tw",
     MQ_host="localhost",
     MQ_port=5672,
     web_host="localhost",
     web_port=60666,
+    web_secret_key="Th151553cr3tK3y",
     timeout=60,
     retry_interval=20,
     default_user_routes=default_user_routes,
@@ -94,5 +110,7 @@ config = Config(registered_servers=servers,
     backup_enable=True,
     flush=flush,
     ldap_settings=ldap_settings,
-    max_workers=4
+    max_workers=4,
+    smtp_api_host="localhost",
+    smtp_api_port=25
 )

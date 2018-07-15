@@ -9,19 +9,25 @@ from sqlalchemy.orm import sessionmaker
 from model.server import Server
 
 class Servers():
-    def __init__(self, db_host, db_port, db_name, db_user, db_passwd):
+    def __init__(self, logger, db_host, db_port, db_name, db_user, db_passwd):
         # create sqlalchemy ORM engine
         self.engine = create_engine("mysql+pymysql://{0}:{1}@{2}:{3}/{4}".\
             format(db_user, db_passwd, db_host, db_port, db_name), pool_recycle=3600)
         self.sessionmaker = sessionmaker(bind=self.engine)
+
+        # logger setup
+        self.logger = logger
+
+    def Debug(self, msg):
+        self.logger.info(" [*] {0}".format(msg))
 
     def add(self, sid, hostname, port, source=True, dest=True):
         if not (sid and hostname and port):
             return None
 
         server = self.get(sid)
+        # if server exists
         if server:
-            print("server {0} exists.".format(sid))
             return None
 
         server = Server(sid, hostname, port, source, dest, activate=True)
@@ -32,7 +38,7 @@ class Servers():
         except Exception as e:
             session.rollback()
             server = None
-            print(e)
+            self.Debug("Something wrong happened during add(), reason: {0}.".format(e))
 
         session.close()
 
@@ -48,9 +54,11 @@ class Servers():
             server = session.query(Server).filter(Server.sid == sid).one()
         except sqlalchemy.orm.exc.MultipleResultsFound as e:
             raise Exception("Database record error. {0}".format(e))
+        except sqlalchemy.orm.exc.NoResultFound as e:
+            server = None
         except Exception as e:
             server = None
-            print(e)
+            self.Debug("Something wrong happened during get(), reason: {0}.".format(e))
 
         session.close()
 
@@ -66,9 +74,11 @@ class Servers():
             server = session.query(Server).filter(Server.id == id).one()
         except sqlalchemy.orm.exc.MultipleResultsFound as e:
             raise Exception("Database record error. {0}".format(e))
+        except sqlalchemy.orm.exc.NoResultFound as e:
+            server = None
         except Exception as e:
             server = None
-            print(e)
+            self.Debug("Something wrong happened during getFromId(), reason: {0}.".format(e))
 
         session.close()
 
@@ -86,7 +96,7 @@ class Servers():
         except Exception as e:
             session.rollback()
             ret = False
-            print(e)
+            self.Debug("Something wrong happened during delete(), reason: {0}.".format(e))
 
         session.close()
 
@@ -97,9 +107,11 @@ class Servers():
         session = self.sessionmaker()
         try:
             servers = session.query(Server).all()
+        except sqlalchemy.orm.exc.NoResultFound as e:
+            servers = list()
         except Exception as e:
             servers = None
-            print(e)
+            self.Debug("Something wrong happened during getList(), reason: {0}.".format(e))
 
         session.close()
         
@@ -110,9 +122,11 @@ class Servers():
         session = self.sessionmaker()
         try:
             servers = session.query(Server).filter(Server.source == True).all()
+        except sqlalchemy.orm.exc.NoResultFound as e:
+            servers = list()
         except Exception as e:
             servers = None
-            print(e)
+            self.Debug("Something wrong happened during getSourceList(), reason: {0}.".format(e))
 
         session.close()
 
@@ -123,9 +137,11 @@ class Servers():
         session = self.sessionmaker()
         try:
             servers = session.query(Server).filter(Server.destination == True).all()
+        except sqlalchemy.orm.exc.NoResultFound as e:
+            servers = list()
         except Exception as e:
             servers = None
-            print(e)
+            self.Debug("Something wrong happened during getDestList(), reason: {0}.".format(e))
 
         session.close()
 

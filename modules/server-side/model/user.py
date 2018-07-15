@@ -29,7 +29,7 @@ class User(Base):
         self.timeout = timeout
         self.service_ready = service_ready
         self.route_ready = route_ready
-        self.created_at = datetime.datetime.now()
+        self.created_at = datetime.datetime.utcnow()
 
         # Flask-Login some attributes
         self.is_authenticated = True

@@ -7,7 +7,8 @@ from flask_socketio import SocketIO, emit
 
 def ManagementUI(config):
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = "secret!"
+    app.config["SECRET_KEY"] = config.kwargs["web_secret_key"]
+    framework_name = config.kwargs["framework_name"]
     socketio = SocketIO(app)
 
     web_host = config.kwargs["web_host"]
@@ -52,7 +53,7 @@ def ManagementUI(config):
 
     @app.route("/monitor")
     def monitor():
-        return render_template("monitor.html")
+        return render_template("monitor.html"), 200
 
     @socketio.on("client_event", namespace="/monitor")
     def client_msg(msg):

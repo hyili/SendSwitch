@@ -7,7 +7,9 @@ import json
 import requests
 
 class Receiver():
-    def __init__(self, exchange_id="random", routing_keys=["random"], host="localhost", port=5672, silent_mode=False):
+    def __init__(self, logger, exchange_id="random", routing_keys=["random"],
+        host="localhost", port=5672, silent_mode=False):
+
         # rabbitmq host
         self.host = host
         self.port = port
@@ -31,20 +33,24 @@ class Receiver():
 
         self.connection.process_data_events()
 
+        # logger setup
+        self.logger = logger
+
     def __del__(self):
         # close connection: after destruction
         try:
             self.channel.stop_consuming()
             self.connection.close()
         except Exception as e:
-            pass
+            self.Debug("Something wrong happened during __del__(), reason: {0}.".format(e))
 
     def Debug(self, msg):
         if not self.silent_mode:
-            print(" [*] {0}".format(msg))
+            self.logger.info(" [*] {0}".format(msg))
 
     def reinit(self):
-        self.__init__(exchange_id=self.exchange_id,
+        self.__init__(logger=self.logger,
+            exchange_id=self.exchange_id,
             routing_keys=self.routing_keys,
             host=self.host,
             port=self.port,
@@ -52,8 +58,6 @@ class Receiver():
         )
 
     def consume_response(self, channel, method, properties, body):
-        if not self.silent_mode:
-            self.Debug("Receive {0}: {1}".format(properties.correlation_id, body.decode("utf-8")))
         self.result.update({properties.correlation_id: body.decode("utf-8")})
 
     # Non-Blocking
@@ -67,9 +71,9 @@ class Receiver():
                 self.reinit()
                 self.connection.process_data_events()
             except Exception as e:
-                raise Exception("Failed to reconnect. {0}".format(e))
+                raise Exception("Failed to reconnect, reason: {0}.".format(e))
         except Exception as e:
-            raise Exception("Error occurred. {0}".format(e))
+            raise Exception("Error occurred, reason: {0}.".format(e))
 
     def get_current_id(self):
         return self.result.keys()

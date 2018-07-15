@@ -7,10 +7,10 @@ import datetime
 import email
 import requests
 
-from protocols import Response
 import macro
-from processor import EmailDecodeProcessor, RedirectOutputProcessor
-from message import Message
+from lib.protocols import Response
+from lib.processor import EmailDecodeProcessor, RedirectOutputProcessor
+from lib.message import Message
 
 class Receiver():
     def __init__(self, timeout=600, exchange_id="random", routing_key="random", host="localhost", port=5672,
@@ -64,7 +64,7 @@ class Receiver():
             self.channel.stop_consuming()
             self.connection.close()
         except Exception as e:
-            pass
+            self.Debug("Something wrong happened during __del__(), reason: {0}.".format(e))
 
     def Debug(self, msg):
         if not self.silent_mode:
@@ -90,7 +90,7 @@ class Receiver():
             data = json.loads(body)
 
             # Debug message
-            self.Debug("Receive {0}".format(data))
+            self.Debug("Received, data: {0}.".format(data))
 
             # Build a Message object with request protocol "data", and "result"
             msg = Message(data["data"], data["result"])
@@ -118,16 +118,16 @@ class Receiver():
                 ),
                 body=json.dumps(response.get())
             )
+
             # Message Controller
-            if not self.silent_mode:
-                self.Debug("Sent {0} to {1}".format(response.get(), properties.reply_to))
+            self.Debug("Sent, data: {0} to {1}.".format(response.get(), properties.reply_to))
 
             channel.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as e:
             # when error occurred, nack may cause infinite loop
             # channel.basic_nack(delivery_tag=method.delivery_tag)
             channel.basic_ack(delivery_tag=method.delivery_tag)
-            self.Debug(e)
+            self.Debug("Something wrong happened during consume_request(), reason: {0}.".format(e))
 
     def reinit(self):
         self.__init__(timeout=self.timeout,
@@ -156,9 +156,9 @@ class Receiver():
             try:
                 self.reinit()
             except Exception as e:
-                raise Exception("Failed to reconnect. {0}".format(e))
+                raise Exception("Failed to reconnect, reason: {0}.".format(e))
         except Exception as e:
-            raise Exception("Error occurred. {0}".format(e))
+            raise Exception("Error occurred, reason: {0}.".format(e))
 
     def close(self):
         self.Debug("Waiting for consumers to close.")

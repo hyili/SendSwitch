@@ -26,5 +26,4 @@ class Server(Base):
         self.source = source
         self.destination = destination
         self.activate = activate
-        self.created_at = datetime.datetime.now()
-
+        self.created_at = datetime.datetime.utcnow()

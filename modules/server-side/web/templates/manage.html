@@ -177,35 +177,52 @@
 <body onload="init()">
     <div class="container">
         <h2>Customized Content Filter Server</h2>
-        <h2>Hi, {{ account }}</h2>
         <div class="container-fluid">
-            <br><br>
-            <button type="button" class="btn btn-outline-primary">Primary</button>
-            <button type="button" class="btn btn-outline-secondary">Secondary</button>
-            <button type="button" class="btn btn-outline-success">Success</button>
-            <button type="button" class="btn btn-outline-info">Info</button>
-            <button type="button" class="btn btn-outline-warning">Warning</button>
-            <button type="button" class="btn btn-outline-danger">Danger</button>
-            <button type="button" class="btn btn-outline-dark">Dark</button>
-            <button type="button" class="btn btn-outline-light text-dark">Light</button>
-            <br><br>
-            <button onclick="activate_service_jQuery()" class="btn btn-outline-success {% if user.service_ready %} active {% endif %}">Activate Service</button>
-            <button onclick="deactivate_service_jQuery()" class="btn btn-outline-danger {% if not user.service_ready %} active {% endif %}">Deactivate Service</button>
-            <button onclick="activate_route_jQuery()" class="btn btn-outline-success {% if user.route_ready %} active {% endif %}">Activate Route</button>
-            <button onclick="deactivate_route_jQuery()" class="btn btn-outline-danger {% if not user.route_ready %} active {% endif %}">Deactivate Route</button>
-            <button onclick="show_registered_users_jQuery()" class="btn btn-outline-dark">Show current registered users</button>
-            <button onclick="show_route_jQuery()" class="btn btn-outline-dark">Show current route</button>
-            <br><br>
-            <div class="container-fluid">
-                <div id="sample">
-                    <div id="RouteDiv" style="border: solid 1px black; width: 100%; height: 400px"></div>
-                    <div style="display:none">
-                        <div>
-                            <button id="SaveButton" onclick="save()">Save</button>
-                            <button onclick="load()">Load</button>
-                            Diagram Model saved in JSON format:
-                        </div>
-                        <textarea id="savedModel" style="width:100%;height:300px">
+            <h3>Hi, {{ account }}</h3>
+            <h3>Sample Button</h3>
+            <ul>
+                <button type="button" class="btn btn-outline-primary">Primary</button>
+                <button type="button" class="btn btn-outline-secondary">Secondary</button>
+                <button type="button" class="btn btn-outline-success">Success</button>
+                <button type="button" class="btn btn-outline-info">Info</button>
+                <button type="button" class="btn btn-outline-warning">Warning</button>
+                <button type="button" class="btn btn-outline-danger">Danger</button>
+                <button type="button" class="btn btn-outline-dark">Dark</button>
+                <button type="button" class="btn btn-outline-light text-dark">Light</button>
+            </ul>
+            <h3>Service of Maintaining Incoming Email</h3>
+            <ul>
+                <li>Activate to start receiving your own email.</li>
+                <button onclick="activate_service_jQuery()" class="btn btn-outline-success {% if user.service_ready %} active {% endif %}">Activate</button>
+                <li>Deactivate to stop receiving your own email.</li>
+                <button onclick="deactivate_service_jQuery()" class="btn btn-outline-danger {% if not user.service_ready %} active {% endif %}">Deactivate</button>
+            </ul>
+            <h3>Service of Setting Email Incoming Route</h3>
+            <ul>
+                <li>Activate to start routing your own email through different kinds of content filter.</li>
+                <button onclick="activate_route_jQuery()" class="btn btn-outline-success {% if user.route_ready %} active {% endif %}">Activate</button>
+                <li>Deactivate to stop routing your own email, and use default route settings instead.</li>
+                <button onclick="deactivate_route_jQuery()" class="btn btn-outline-danger {% if not user.route_ready %} active {% endif %}">Deactivate</button>
+            </ul>
+            <h3>Show Current Status</h3>
+            <ul>
+                <li>Show all registered users' email address</li>
+                <button onclick="show_registered_users_jQuery()" class="btn btn-outline-dark">Click me.</button>
+                <li>Show your own route setting.</li>
+                <button onclick="show_route_jQuery()" class="btn btn-outline-dark">Click me.</button>
+            </ul>
+            <h3>Show Route Status</h3>
+            <ul>
+                <div class="container-fluid">
+                    <div id="sample">
+                        <div id="RouteDiv" style="border: solid 1px black; width: 100%; height: 400px"></div>
+                        <div style="display:none">
+                            <div>
+                                <button id="SaveButton" onclick="save()">Save</button>
+                                <button onclick="load()">Load</button>
+                                Diagram Model saved in JSON format:
+                            </div>
+                            <textarea id="savedModel" style="width:100%;height:300px">
 { "nodeKeyProperty": "id",
     "nodeDataArray": [
         {% for server in servers %}
@@ -223,23 +240,32 @@
         {}
     ]
 }
-                        </textarea>
+                            </textarea>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <br><br>
-            {% for src_server in src_servers %}
-            <p>{{ src_server.sid }}: </p>
-            {% for dst_server in dst_servers %}{% if src_server.sid != dst_server.sid %}
-            <button onclick="connect_jQuery('{{ src_server.sid }}', '{{ dst_server.sid }}')" class="btn btn-outline-primary {% if dst_server.sid == user_routes[src_server.sid].dest.sid %} active {% endif %}">{{ dst_server.sid }}</button>
-            {% endif %}{% endfor %}
-            <br><br>
-            {% endfor %}
-            <button onclick="flush_jQuery()" class="btn btn-outline-info">Flush your email</button>
-            <br><br>
-            <form action="{{ url_for('logout') }}" method="POST">
-                <button type="submit" class="btn btn-outline-warning">Logout</button>
-            </form>
+            </ul>
+            <h3>Modify Route Settings</h3>
+            <ul>
+                {% for src_server in src_servers %}
+                <li>{{ src_server.sid }}: </li>
+                {% for dst_server in dst_servers %}{% if src_server.sid != dst_server.sid %}
+                <button onclick="connect_jQuery('{{ src_server.sid }}', '{{ dst_server.sid }}')" class="btn btn-outline-primary {% if dst_server.sid == user_routes[src_server.sid].dest.sid %} active {% endif %}">{{ dst_server.sid }}</button>
+                {% endif %}{% endfor %}
+                {% endfor %}
+            </ul>
+            <h3>Flush Email</h3>
+            <ul>
+                <li>Flush your email, this will trigger server to push all your current queued email to you.</li>
+                <li>This may cause your client to receive duplicate email.</li>
+                <button onclick="flush_jQuery()" class="btn btn-outline-info">Flush</button>
+            </ul>
+            <h3>Logout</h3>
+            <ul>
+                <form action="{{ url_for('logout') }}" method="POST">
+                    <button type="submit" class="btn btn-outline-warning">Logout</button>
+                </form>
+            </ul>
         </div>
     </div>
 </body>

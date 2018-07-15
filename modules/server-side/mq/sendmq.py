@@ -6,10 +6,12 @@ import datetime
 import json
 import requests
 
-from protocols import Request
+from lib.protocols import Request
 
 class Sender():
-    def __init__(self, timeout=600, exchange_id="random", routing_keys=["random"], user_profile=None, host="localhost", port=5672, silent_mode=False):
+    def __init__(self, user_profile, logger, timeout=600, exchange_id="random", routing_keys=["random"],
+        host="localhost", port=5672, silent_mode=False):
+
         # rabbitmq host
         self.host = host
         self.port = port
@@ -40,6 +42,9 @@ class Sender():
             routing_key=self.response_queue_id
         )
 
+        # logger setup
+        self.logger = logger
+
         # result: storing result
         self.result = []
 
@@ -50,14 +55,16 @@ class Sender():
         try:
             self.connection.close()
         except Exception as e:
-            self.Debug(e)
+            self.Debug("Something wrong happened during __del__(), reason: {0}.".format(e))
 
     def Debug(self, msg):
         if not self.silent_mode:
-            print(" [*] {0}".format(msg))
+            self.logger.info(" [*] {0}".format(msg))
 
     def reinit(self):
-        self.__init__(exchange_id=self.exchange_id,
+        self.__init__(user_profile=self.user_profile,
+            logger=self.logger,
+            exchange_id=self.exchange_id,
             routing_keys=self.routing_keys,
             host=self.host,
             silent_mode=self.silent_mode
@@ -77,10 +84,6 @@ class Sender():
                 body=msg
             )
 
-            # Message Controller
-            if not self.silent_mode:
-                self.Debug("Sent {0}: {1}".format(corr_id, request.get()))
-
     # Non-Blocking
     def send_msg(self, msg, result, corr_id=None):
         # corr_id: message correlation id
@@ -97,15 +100,12 @@ class Sender():
         try:
             self._send_msg(timestamp, expire, corr_id, request.get())
         except pika.exceptions.ConnectionClosed:
-            self.Debug("Connection to rabbitmq closed, trying to reconnect.")
             try:
                 self.reinit()
                 self._send_msg(timestamp, expire, corr_id, request.get())
             except Exception as e:
-                self.Debug("Failed to reconnect. {0}".format(e))
-                return None
+                raise Exception("Failed to reconnect, reason: {0}..".format(e))
         except Exception as e:
-            self.Debug("Error occurred. {0}".format(e))
-            return None
+            raise Exception("Error occurred, reason: {0}.".format(e))
 
         return corr_id
