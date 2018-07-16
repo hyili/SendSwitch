@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from smtplib import SMTP
+import email
 import time
 import sys
 
@@ -8,8 +9,8 @@ hostname = "localhost"
 port = 8025
 
 # if SPAM_ENABLE is True, then a GTUBE pattern will be sent
-SPAM_ENABLE = False
-VIRUS_ENABLE = True
+SPAM_ENABLE = True
+VIRUS_ENABLE = False
 GTUBE = "XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X"
 EICAR = "X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"
 
@@ -27,12 +28,8 @@ except:
     print("       This will send 3 test emails from test@example1.com to test@example2.com and test@example3.com.")
     exit()
 
-content_template = """From: Anne Person <test@example1.com>
-To: Bart Person <test@example2.com>
-Subject: A test
-Message-ID: whoowhoohaha
-
-{0}"""
+subject = "A test"
+content_template = """{0}"""
 
 if SPAM_ENABLE:
     print("Start to insert spam test emails.")
@@ -46,8 +43,16 @@ else:
 
 for i in range(0, number, 1):
     try:
-        r1 = client.sendmail(mailer, emails, content)
+        msg = email.message.EmailMessage()
+        msg.set_content(content)
+        msg["From"] = mailer
+        msg["To"] = emails
+        msg["Subject"] = subject
+
+        client.send_message(msg, to_addrs=emails)
     except Exception as e:
         print(e)
 
     print("... {0} ...".format(i))
+
+client.quit()

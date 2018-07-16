@@ -22,7 +22,7 @@ class SlackProcessor(Processor):
     def target(self, msg):
         assert hasattr(self, "webhooks"), "you must call setWebhooks() first before calling run()."
 
-        current_msg = msg.getCurrentMsg()
+        current_msg = msg.getMsg()
         data = {
             "text": "```\n{0}\n```".format(str(current_msg["header"]["subject"]))
         }
@@ -86,13 +86,13 @@ class BlacklistWhitelistProcessor(Processor):
         for address in self.whitelist:
             if address in msg["header"]["from"]:
                 print("Address in whitelist")
-                msg.setResult(macro.PASS)
+                msg.setAction(macro.ACTION_PASS)
                 return msg
 
         for address in self.blacklist:
             if address in msg["header"]["from"]:
                 print("Address in blacklist")
-                msg.setResult(macro.DENY)
+                msg.setAction(macro.ACTION_DENY)
                 return msg
 
         return msg
@@ -116,7 +116,7 @@ class SpamAssassinProcessor(Processor):
             header["x-spam-status"][0].split(",")[0].lower().index("yes")
 
             print("SPAM found.")
-            msg.setResult(macro.SPAM)
+            msg.setResult(macro.TAG_SPAM)
         except ValueError:
             print("Not SPAM.")
         finally:
@@ -140,6 +140,8 @@ class ClamAVProcessor(Processor):
         process = subprocess.Popen(["clamscan", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         output, error = process.communicate(input=msg.getDecodedMsg())
 
+        print(msg.getDecodedMsg())
+
         ret = self.extract_result(output)
 
         # return result
@@ -147,7 +149,7 @@ class ClamAVProcessor(Processor):
             ret["Infected files"].lower().index("1")
 
             print("VIRUS found.")
-            msg.setResult(macro.VIRUS)
+            msg.setResult(macro.TAG_VIRUS)
         except ValueError:
             print("Not VIRUS.")
         finally:

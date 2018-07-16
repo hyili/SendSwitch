@@ -85,7 +85,7 @@ class Sender():
             )
 
     # Non-Blocking
-    def send_msg(self, msg, result, corr_id=None):
+    def send_msg(self, msg, result, action, corr_id=None):
         # corr_id: message correlation id
         if corr_id is None:
             corr_id = str(uuid.uuid4())
@@ -95,7 +95,7 @@ class Sender():
         # message will not actually be removed when times up
         # it will be removed until message head up the limit
         expire = (self.timeout if self.user_profile is None else self.user_profile.timeout) * 1000
-        request = Request(timestamp=timestamp, expire=expire, data=msg, result=result)
+        request = Request(timestamp=timestamp, expire=expire, data=msg, result=result, action=action)
 
         try:
             self._send_msg(timestamp, expire, corr_id, request.get())

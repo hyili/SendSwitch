@@ -7,7 +7,6 @@ import datetime
 import email
 import requests
 
-import macro
 from lib.protocols import Response
 from lib.processor import EmailDecodeProcessor, RedirectOutputProcessor
 from lib.message import Message
@@ -106,7 +105,7 @@ class Receiver():
             expire = self.timeout * 1000
 
             response = Response(timestamp=timestamp, expire=expire,
-                result=current_msg.getResult())
+                action=current_msg.getAction(), result=current_msg.getResult())
 
             # send response backto default exchanger
             channel.basic_publish(exchange='',

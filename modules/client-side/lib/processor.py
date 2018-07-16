@@ -6,8 +6,6 @@ import json
 import copy
 from email.header import decode_header
 
-import macro
-
 # Processor Template
 class Processor():
     def __init__(self, timeout=10, description=None, enable=True, silent_mode=False):
@@ -139,7 +137,7 @@ class EmailDecodeProcessor(Processor):
 
             # store the result into msg
             msg.setDecodedMsg(decoded_msg)
-            msg.setCurrentMsg(current_msg)
+            msg.setMsg(current_msg)
         except Exception as e:
             return None
 
@@ -157,7 +155,7 @@ class RedirectOutputProcessor(Processor):
         assert hasattr(self, "output"), "you must call setOutput() first before calling run()."
 
         if self.output is not None:
-            json_msg = json.dumps(msg.getCurrentMsg())
+            json_msg = json.dumps(msg.getMsg())
             self.output.send(json_msg)
 
         return msg
