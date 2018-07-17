@@ -39,6 +39,7 @@ class UserRoutes():
         try:
             session.add(route)
             session.commit()
+            session.refresh(route)
         except Exception as e:
             session.rollback()
             route = None

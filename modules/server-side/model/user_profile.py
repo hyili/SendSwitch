@@ -38,6 +38,7 @@ class Users():
         try:
             session.add(user)
             session.commit()
+            session.refresh(user)
         except Exception as e:
             session.rollback()
             user = None

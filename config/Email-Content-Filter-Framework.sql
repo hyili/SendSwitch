@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- 主機: localhost
--- 產生時間： 2018 年 07 月 09 日 16:27
+-- 產生時間： 2018 年 07 月 17 日 10:29
 -- 伺服器版本: 5.6.40
 -- PHP 版本： 7.2.7
 
@@ -25,15 +25,15 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- 資料表結構 `mail_status`
+-- 資料表結構 `api_info`
 --
 
-CREATE TABLE `mail_status` (
-  `id` int(10) UNSIGNED NOT NULL COMMENT 'mail id',
-  `corr_id` varchar(100) NOT NULL COMMENT 'correlation id',
-  `status_code` int(10) UNSIGNED NOT NULL COMMENT 'status code',
-  `status` varchar(100) NOT NULL COMMENT 'status description',
-  `location` int(10) UNSIGNED NOT NULL COMMENT 'server_id of email locate'
+CREATE TABLE `api_info` (
+  `id` int(10) UNSIGNED NOT NULL COMMENT 'auto increment application id',
+  `uid` int(10) UNSIGNED NOT NULL COMMENT 'user id',
+  `api_secret` varchar(100) NOT NULL COMMENT 'a key for api_key encryption',
+  `created_at` datetime NOT NULL COMMENT 'when the record be created',
+  `expired_at` datetime NOT NULL COMMENT 'when will the key expired'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- --------------------------------------------------------
@@ -109,16 +109,18 @@ CREATE TABLE `user_route` (
 --
 
 --
--- 資料表索引 `mail_status`
+-- 資料表索引 `api_info`
 --
-ALTER TABLE `mail_status`
-  ADD PRIMARY KEY (`id`);
+ALTER TABLE `api_info`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `uid` (`uid`);
 
 --
 -- 資料表索引 `server_profile`
 --
 ALTER TABLE `server_profile`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `sid` (`sid`);
 
 --
 -- 資料表索引 `server_route`
@@ -139,19 +141,19 @@ ALTER TABLE `user_profile`
 --
 ALTER TABLE `user_route`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `source_id foreign key` (`source_id`),
-  ADD KEY `destination_id foreign key` (`destination_id`),
-  ADD KEY `uid foreign key` (`uid`);
+  ADD KEY `user_route destination_id foreign key` (`destination_id`),
+  ADD KEY `user_route source_id foreign key` (`source_id`),
+  ADD KEY `user_route uid foreign key` (`uid`);
 
 --
 -- 在匯出的資料表使用 AUTO_INCREMENT
 --
 
 --
--- 使用資料表 AUTO_INCREMENT `mail_status`
+-- 使用資料表 AUTO_INCREMENT `api_info`
 --
-ALTER TABLE `mail_status`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'mail id';
+ALTER TABLE `api_info`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auto increment application id';
 
 --
 -- 使用資料表 AUTO_INCREMENT `server_profile`
@@ -182,12 +184,18 @@ ALTER TABLE `user_route`
 --
 
 --
+-- 資料表的 Constraints `api_info`
+--
+ALTER TABLE `api_info`
+  ADD CONSTRAINT `app_info uid foreign key` FOREIGN KEY (`uid`) REFERENCES `user_profile` (`id`);
+
+--
 -- 資料表的 Constraints `user_route`
 --
 ALTER TABLE `user_route`
-  ADD CONSTRAINT `destination_id foreign key` FOREIGN KEY (`destination_id`) REFERENCES `server_profile` (`id`),
-  ADD CONSTRAINT `source_id foreign key` FOREIGN KEY (`source_id`) REFERENCES `server_profile` (`id`),
-  ADD CONSTRAINT `uid foreign key` FOREIGN KEY (`uid`) REFERENCES `user_profile` (`id`);
+  ADD CONSTRAINT `user_route destination_id foreign key` FOREIGN KEY (`destination_id`) REFERENCES `server_profile` (`id`),
+  ADD CONSTRAINT `user_route source_id foreign key` FOREIGN KEY (`source_id`) REFERENCES `server_profile` (`id`),
+  ADD CONSTRAINT `user_route uid foreign key` FOREIGN KEY (`uid`) REFERENCES `user_profile` (`id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

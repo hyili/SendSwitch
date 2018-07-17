@@ -38,6 +38,7 @@ class Servers():
         try:
             session.add(server)
             session.commit()
+            session.refresh(server)
         except Exception as e:
             session.rollback()
             server = None

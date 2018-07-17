@@ -261,7 +261,7 @@
                 {% for src_server in src_servers %}
                 <li>{{ src_server.sid }}: </li>
                 {% for dst_server in dst_servers %}{% if src_server.sid != dst_server.sid %}
-                <button onclick="connect_jQuery('{{ src_server.sid }}', '{{ dst_server.sid }}')" class="btn btn-outline-primary {% if dst_server.sid == user_routes[src_server.sid].dest.sid %} active {% endif %}">{{ dst_server.sid }}</button>
+                <button onclick="connect_jQuery('{{ src_server.sid }}', '{{ dst_server.sid }}')" class="btn btn-outline-primary {% if src_server.sid in user_routes and dst_server.sid == user_routes[src_server.sid].dest.sid %} active {% endif %}">{{ dst_server.sid }}</button>
                 {% endif %}{% endfor %}
                 {% endfor %}
             </ul>

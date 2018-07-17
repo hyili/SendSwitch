@@ -40,6 +40,7 @@ It requires at least Python 3.5 to run.
 ## Related Projects
 - aiosmtpd: https://github.com/aio-libs/aiosmtpd
 - flask: http://flask.pocoo.org/
+- MySQL: https://www.mysql.com/
 - Postfix: http://www.postfix.org/
 - RabbitMQ: https://www.rabbitmq.com/
 - OpenLDAP: https://www.openldap.org/
@@ -74,6 +75,10 @@ rabbitmq-plugins enable rabbitmq_shovel
 rabbitmq-plugins enable rabbitmq_shovel_management
 ```
 Finally, using apps/install.py and apps/per_user_install.py to setup your queue routing
+#### MySQL
+Install MySQL on your system, and you can now setup your own route with this framework.
+After MySQL installation, import config/Email-Content-Filter-Framework.sql.
+Finally, setup db information in config/server_config.py.
 #### Postfix
 Install Postfix on your system, and modify the following
 - in master.cf
