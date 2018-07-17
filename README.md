@@ -74,7 +74,8 @@ rabbitmq-plugins enable rabbitmq_auth_backend_ldap
 rabbitmq-plugins enable rabbitmq_shovel
 rabbitmq-plugins enable rabbitmq_shovel_management
 ```
-Finally, using apps/install.py and apps/per_user_install.py to setup your queue routing
+We use OpenLDAP as backend auth server, you can use configuration file config/rabbitmq.config if you want.
+Finally, using apps/setup_route.py to setup your MessageQueue routing
 #### MySQL
 Install MySQL on your system, and you can now setup your own route with this framework.
 After MySQL installation, import config/Email-Content-Filter-Framework.sql.
@@ -168,6 +169,13 @@ git submodule update --init
 
 #### tests/example_client.py
 - Example SMTP client for sending email using Python
+
+## Usage
+When an user visit http://localhost:60666/, he/she can now login with OpenLDAP email and password.
+The user is able to setup routing between servers.
+If an user wants to receive messages from MessageQueue using apps/framework_client.py, not only setup config/client_config.py with OpenLDAP email and password but also need to run apps/setup_route.py for that user.
+After doing these, user can start handling messages from MessageQueue using app/framework_client.py.
+When an user needs to see the runtime information, he/she can visit http://localhost:61666/monitor for more detail information.
 
 ## Naming Rule
 #### class

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Management Page</title>
+    <title>{{ account }}'s Management Page</title>
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -181,40 +181,39 @@
             );
             location.reload();
         }
+
+        function POST_to_smtp_api() {
+            $.ajax({
+                url: "smtp",
+                type: "POST",
+                data: $("textarea#smtp_api_demo").val(),
+                contentType: "application/json; charset=utf-8",
+                dataType: "json"
+            }).done(function(data, textStatus, jqXHR) {
+                alert("Response: " + data);
+            }).fail(function(jqXHR, textStatus, error){
+                alert("Response: " + jqXHR.responseText);
+            });
+        }
     </script>
 </head>
 
 <body onload="init()">
     <div class="container">
-        <h2>Customized Content Filter Server</h2>
         <div class="container-fluid">
-            <h3>Hi, {{ account }}</h3>
-            <h3>Sample Button</h3>
+            <h3>Maintain Incoming Email</h3>
             <ul>
-                <button type="button" class="btn btn-outline-primary">Primary</button>
-                <button type="button" class="btn btn-outline-secondary">Secondary</button>
-                <button type="button" class="btn btn-outline-success">Success</button>
-                <button type="button" class="btn btn-outline-info">Info</button>
-                <button type="button" class="btn btn-outline-warning">Warning</button>
-                <button type="button" class="btn btn-outline-danger">Danger</button>
-                <button type="button" class="btn btn-outline-dark">Dark</button>
-                <button type="button" class="btn btn-outline-light text-dark">Light</button>
-            </ul>
-            <h3>Service of Maintaining Incoming Email</h3>
-            <ul>
-                <li>Activate to start receiving your own email.</li>
+                <li>You can get your email through your SDK.</li>
                 <button onclick="activate_service_jQuery()" class="btn btn-outline-success {% if user.service_ready %} active {% endif %}">Activate</button>
-                <li>Deactivate to stop receiving your own email.</li>
                 <button onclick="deactivate_service_jQuery()" class="btn btn-outline-danger {% if not user.service_ready %} active {% endif %}">Deactivate</button>
             </ul>
-            <h3>Service of Setting Email Incoming Route</h3>
+            <h3>Set Incoming Email Route</h3>
             <ul>
-                <li>Activate to start routing your own email through different kinds of content filter.</li>
+                <li>Route your own email through different filters.</li>
                 <button onclick="activate_route_jQuery()" class="btn btn-outline-success {% if user.route_ready %} active {% endif %}">Activate</button>
-                <li>Deactivate to stop routing your own email, and use default route settings instead.</li>
                 <button onclick="deactivate_route_jQuery()" class="btn btn-outline-danger {% if not user.route_ready %} active {% endif %}">Deactivate</button>
             </ul>
-            <h3>Show Current Status</h3>
+            <h3>Current Status</h3>
             <ul>
                 <li>Show all registered users' email address</li>
                 <button onclick="show_registered_users_jQuery()" class="btn btn-outline-dark">Click me.</button>
@@ -267,29 +266,30 @@
             </ul>
             <h3>SMTP API Key</h3>
             <ul>
-                <li>Click to get your SMTP API Key.</li>
-                <div id="api_key" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"></div>
+                <li>Get your SMTP API Key. The key will expired in 1 day.</li>
+                <textarea readonly id="api_key" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"></textarea>
                 <button onclick="get_api_key_jQuery()" class="btn btn-outline-dark">Click me.</button>
-                <li>How to use?</li>
-                <div id="smtp_api_sample" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;">
-POST /smtp
+                <li>How to use? Try POST sample below.</li>
+                <textarea id="smtp_api_demo" rows="15" class="w-100 p-3 h-15" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;">
 {
     "data": {
         "api_key": "API_KEY",
-        "mail_from": "your email here",
-        "mail_to": ["email1", "email2"],
-        "cc_to": ["email3", "email4"],
-        "bcc_to": ["email5", "email6"],
-        "subject": "SUBJECT",
-        "content": "CONTENT"
+        "mail_from": "{{ account }}@{{ domain }}",
+        "mail_to": ["{{ account }}@{{ domain }}"],
+        "cc_to": [],
+        "bcc_to": [],
+        "subject": "This is a SMTP API Test.",
+        "content": "Test~ Please ignore this."
     }
 }
-                </div>
+                </textarea>
+                <button onclick="POST_to_smtp_api()" class="btn btn-outline-dark">POST</button>
             </ul>
             <h3>Flush Email</h3>
             <ul>
-                <li>Flush your email, this will trigger server to push all your current queued email to you.</li>
-                <li>This may cause your client to receive duplicate email.</li>
+                <li>Retry all your jammed emails.</li>
+                <li>This button might be useful when you are developing your app with SDK</li>
+                <li>This may cause you to receive duplicate email at your SDK.</li>
                 <button onclick="flush_jQuery()" class="btn btn-outline-info">Flush</button>
             </ul>
             <h3>Logout</h3>
