@@ -134,17 +134,12 @@ Content-Type: application/json
     }
 }
 ```
-#### apps/install.py
-- Setup for global MessageQueue setting
+#### apps/setup_route.py
+- Setup for global & user MessageQueue route setting
+- After this, client-side can receive messages via MessageQueue
 - sample usage
 ```
-./install.py {username}@{domain}
-```
-#### apps/per_user_install.py
-- Setup for per-user MessageQueue setting
-- sample usage
-```
-./per_user_install.py {rabbitmq_host} {rabbitmq_vhost}
+./setup_route.py {rabbitmq_host} {username}@{domain}
 ```
 
 ## Client-Side Environment Setup

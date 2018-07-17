@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+
 import pika
 import uuid
-import sys
 import time
 import datetime
 import json
@@ -93,16 +93,3 @@ class install():
             self.connection.close()
         except:
             pass
-
-if __name__ == "__main__":
-    try:
-        args = sys.argv
-        if len(args) == 2:
-            arg = args[1].split("@")
-            username = arg[0]
-            email_domain = arg[1]
-            install = install(username=username, email_domain=email_domain)
-        else:
-            print("./install.py {username}@{domain}")
-    except KeyboardInterrupt:
-        print(" [*] Signal Catched. Quit.")

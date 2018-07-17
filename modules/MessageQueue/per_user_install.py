@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+
 import pika
 import uuid
-import sys
 import time
 import datetime
 import json
@@ -132,13 +132,3 @@ class per_user_install():
     def Debug(self, msg):
         if not self.silent_mode:
             print(" [*] {0}".format(msg))
-
-if __name__ == "__main__":
-    try:
-        args = sys.argv
-        if len(args) == 3:
-            install = per_user_install(host=args[1], vhost=args[2])
-        else:
-            print("./per_user_install.py {rabbitmq_host} {rabbitmq_vhost}")
-    except KeyboardInterrupt:
-        print(" [*] Signal Catched. Quit.")
