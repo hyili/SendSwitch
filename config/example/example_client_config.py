@@ -7,10 +7,10 @@ from processor import Processor, EchoProcessor, SlackProcessor, WebhookProcessor
 ##### Create all your processors here #####
 processor_1 = EchoProcessor(description="This is echo processor sample.")
 processor_2 = SlackProcessor(description="This is post to slack processor sample.")
-processor_2.setWebhook(["https://your/slack/webhook/here"])
+processor_2.setWebhooks(["https://your/slack/webhook/here"])
 processor_2.deactivate()
 processor_3 = WebhookProcessor(description="This is post to webhook processor sample.")
-processor_3.setWebhook(["https://your/own/webhook/here"])
+processor_3.setWebhooks(["https://your/own/webhook/here"])
 processor_3.deactivate()
 processor_4 = BlacklistWhitelistProcessor(description="This is blacklist & whitelist processor sample.")
 processor_4.setBlacklist(path=None)
