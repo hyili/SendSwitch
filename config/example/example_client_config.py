@@ -2,7 +2,7 @@
 
 from config_loader import Config
 from shared_queue import SharedQueue
-from processor import Processor, EchoProcessor, SlackProcessor, WebhookProcessor, BlacklistWhitelistProcessor, SpamAssassinProcessor, ClamAVProcessor
+from processor import Processor, EchoProcessor, SlackProcessor, WebhookProcessor, BlacklistWhitelistProcessor, SpamAssassinProcessor, ClamAVProcessor, ForwardProcessor
 
 ##### Create all your processors here #####
 processor_1 = EchoProcessor(description="This is echo processor sample.")
@@ -20,9 +20,12 @@ processor_5 = SpamAssassinProcessor(description="This is spamassassin processor 
 processor_5.deactivate()
 processor_6 = ClamAVProcessor(description="This is clamav processor sample.")
 processor_6.deactivate()
+processor_7 = ForwardProcessor(description="This is forward processor sample.")
+processor_7.setForwardAddress("your@email.here")
+processor_7.deactivate()
 
 # Processors
-processors = [processor_1, processor_2, processor_3, processor_4, processor_5, processor_6]
+processors = [processor_1, processor_2, processor_3, processor_4, processor_5, processor_6, processor_7]
 
 ##### Create all your processors above #####
 

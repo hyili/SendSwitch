@@ -111,6 +111,7 @@ config = Config(framework_name="framework_name",
     flush=flush,
     ldap_settings=ldap_settings,
     max_workers=4,
+    JWT_expire_interval=86399,
     smtp_api_host="localhost",
     smtp_api_port=25
 )

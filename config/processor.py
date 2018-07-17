@@ -12,6 +12,21 @@ class EchoProcessor(Processor):
         print("Echo Here")
         return msg
 
+# Forward Processor Sample
+class ForwardProcessor(Processor):
+    def setForwardAddress(self, forward_address):
+        assert isinstance(forward_address, str), "forward_address must be a string."
+
+        self.forward_address = forward_address
+
+    def target(self, msg):
+        assert hasattr(self, "forward_address"), "you must call setForwardAddress() first before calling run()."
+
+        msg.setAction(macro.ACTION_FORWARD)
+        msg.setForward(self.forward_address)
+
+        return msg
+
 # Post to Slack Processor Sample
 class SlackProcessor(Processor):
     def setWebhooks(self, webhooks):

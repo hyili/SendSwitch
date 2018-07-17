@@ -103,6 +103,6 @@ if __name__ == "__main__":
             email_domain = arg[1]
             install = install(username=username, email_domain=email_domain)
         else:
-            print("./install.py [username]@[domain]")
+            print("./install.py {username}@{domain}")
     except KeyboardInterrupt:
         print(" [*] Signal Catched. Quit.")

@@ -47,6 +47,7 @@ def ManagementUI(config):
     output = config.kwargs["output"]
     flush = config.kwargs["flush"]
     ldap_settings = config.kwargs["ldap_settings"]
+    JWT_expire_interval = config.kwargs["JWT_expire_interval"]
     smtp_api_host = config.kwargs["smtp_api_host"]
     smtp_api_port = config.kwargs["smtp_api_port"]
 
@@ -329,7 +330,7 @@ def ManagementUI(config):
             payload = {
                 "iss": framework_name,
                 "iat": current_time,
-                "exp": current_time+datetime.timedelta(seconds=86399),
+                "exp": current_time+datetime.timedelta(seconds=JWT_expire_interval),
                 "data": {
                     "uid": uid,
                     "email": email,
@@ -365,16 +366,32 @@ def ManagementUI(config):
             try:
                 api_key = content["data"]["api_key"]
                 payload = jwt.decode(api_key, app.config["SECRET_KEY"], algorithms=[HASH_algo])
+
+                # Check user data
+                user = registered_users.get(payload["data"]["email"])
+                if user.id != payload["data"]["uid"]:
+                    return "Invalid api_key.", 403
+
+                # Check expiration
+                current = datetime.datetime.utcnow()
+                expire = datetime.datetime.fromtimestamp(payload["exp"])
+                if current > expire:
+                    return "Expired api_key.", 403
             except Exception as e:
+                print(e)
                 return "Invalid api_key.", 403
 
-            # check if the incoming request is valid
+            # Check if the incoming request is valid
             mail_to_upper_bound = 10
             mail_to_lower_bound = 1
             cc_to_upper_bound = 20
             bcc_to_upper_bound = 20
             try:
+                # mail_from's address must be user's email address
                 mail_from = content["data"]["mail_from"]
+                if mail_from != payload["data"]["email"]:
+                    return "Invalid mail_from address.", 403
+
                 mail_to = content["data"]["mail_to"]
                 if len(mail_to) > mail_to_upper_bound:
                     return "Maximum number of {0} addresses in mail_to exceeded.".format(mail_to_upper_bound), 400
@@ -401,7 +418,8 @@ def ManagementUI(config):
                 msg.set_content(content)
                 msg["From"] = mail_from
                 msg["To"] = mail_to
-                msg["Cc"] = cc_to
+                if len(cc_to) > 0:
+                    msg["Cc"] = cc_to
                 msg["Subject"] = subject
 
                 to_list = mail_to + cc_to + bcc_to

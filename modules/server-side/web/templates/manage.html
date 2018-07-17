@@ -86,6 +86,16 @@
     }
     </script>
     <script>
+        function get_api_key_jQuery() {
+            $.get(
+                "api_key",
+                {},
+                function(data) {
+                    $("#api_key").html(data);
+                }
+            );
+        }
+
         function activate_service_jQuery() {
             $.post(
                 "service/activate",
@@ -247,12 +257,34 @@
             </ul>
             <h3>Modify Route Settings</h3>
             <ul>
+                <li>You can determine the next hop of incoming emails.</li>
                 {% for src_server in src_servers %}
                 <li>{{ src_server.sid }}: </li>
                 {% for dst_server in dst_servers %}{% if src_server.sid != dst_server.sid %}
                 <button onclick="connect_jQuery('{{ src_server.sid }}', '{{ dst_server.sid }}')" class="btn btn-outline-primary {% if dst_server.sid == user_routes[src_server.sid].dest.sid %} active {% endif %}">{{ dst_server.sid }}</button>
                 {% endif %}{% endfor %}
                 {% endfor %}
+            </ul>
+            <h3>SMTP API Key</h3>
+            <ul>
+                <li>Click to get your SMTP API Key.</li>
+                <div id="api_key" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"></div>
+                <button onclick="get_api_key_jQuery()" class="btn btn-outline-dark">Click me.</button>
+                <li>How to use?</li>
+                <div id="smtp_api_sample" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;">
+POST /smtp
+{
+    "data": {
+        "api_key": "API_KEY",
+        "mail_from": "your email here",
+        "mail_to": ["email1", "email2"],
+        "cc_to": ["email3", "email4"],
+        "bcc_to": ["email5", "email6"],
+        "subject": "SUBJECT",
+        "content": "CONTENT"
+    }
+}
+                </div>
             </ul>
             <h3>Flush Email</h3>
             <ul>

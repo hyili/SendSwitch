@@ -4,7 +4,6 @@
 
 import os
 import re
-import sys
 import json
 import base64
 import asyncio
@@ -29,7 +28,8 @@ EMPTYBYTES = b""
 COMMASPACE = ", "
 CRLF = b"\r\n"
 NLCRE = re.compile(br"\r\n|\r|\n")
-SUBJECT = re.compile(br"\r\n(subject:)(.*)\r\n", re.IGNORECASE)
+SUBJECT = re.compile(br"(\r\n|\r|\n)(subject:)(.*)(\r\n|\r|\n)", re.IGNORECASE)
+TO = re.compile(br"(\r\n|\r|\n)(to:)(.*)(\r\n|\r|\n)", re.IGNORECASE)
 
 class MQHandlerBundle():
     def __init__(self, rcpt, sender):
@@ -88,23 +88,23 @@ class SMTPProxyHandler(Proxy):
         # Check if sending operation went wrong
         if bundle.status >= 0:
             if SMTP_result[0] == 250:
-                self.Debug("Successfully sent out, reason: {0}.".
-                    format(SMTP_result), header=bundle.corr_id)
+                self.Debug("Successfully sent out, reason: {0}.".format(SMTP_result), header=bundle.corr_id)
+
+                return (250, "OK saved as {0}, next hop status {1}.".format(bundle.corr_id, str(SMTP_result)))
             elif SMTP_result[0] < 0:
                 self.Debug("Something wrong happened during check_SMTP_session_bundle(), reason: {0}.".
                     format(SMTP_result), header=bundle.corr_id)
 
-                return "471 Something wrong happened to {0}, next hop status {1}".format(bundle.corr_id, str(SMTP_result))
+                return (471, "Something wrong happened to {0}, next hop status {1}".format(bundle.corr_id, str(SMTP_result)))
             else:
                 self.Debug("Something wrong happened during check_SMTP_session_bundle(), reason: {0}.".
                     format(SMTP_result), header=bundle.corr_id)
 
-                return "471 Something wrong happened to {0}, next hop status {1}".format(bundle.corr_id, str(SMTP_result))
+                return (471, "Something wrong happened to {0}, next hop status {1}".format(bundle.corr_id, str(SMTP_result)))
         else:
-            self.Debug("Remove it, reason: {0}".
-                format(SMTP_result), header=bundle.corr_id)
+            self.Debug("Remove it, reason: {0}".format(SMTP_result), header=bundle.corr_id)
 
-        return "250 OK saved as {0}, next hop status {1}.".format(bundle.corr_id, str(SMTP_result))
+            return (250, "OK removed.")
 
     def finish(self, corr_id):
         bundle = self.SMTP_session_bundles.pop(corr_id, None)
@@ -231,7 +231,7 @@ class SMTPProxyHandler(Proxy):
         except Exception as e:
             return "471 Something wrong happened, {0}".format(e)
 
-        return result
+        return "{0} {1}".format(result[0], result[1])
 
 class SMTPMQHandler(SMTPProxyHandler):
     def __init__(self, config, current_server, next_hop_server, host="localhost", backup_enable=False, temp_directory="/tmp/PSF/", silent_mode=False):
@@ -504,40 +504,65 @@ class SMTPMQHandler(SMTPProxyHandler):
             if result["result"] & macro.TAG_NOTHING:
                 pass
             if result["result"] & macro.TAG_SPAM:
-                bundle.envelope.original_content = re.sub(SUBJECT, br"\r\n\1 ***SPAM*** \2\r\n", bundle.envelope.original_content, count=1)
+                bundle.envelope.original_content = re.sub(SUBJECT, br"\1\2 ***SPAM*** \3\4", bundle.envelope.original_content, count=1)
+                self.Debug("Tag it SPAM, reason: TAG_SPAM.", header=bundle.corr_id)
             if result["result"] & macro.TAG_VIRUS:
-                bundle.envelope.original_content = re.sub(SUBJECT, br"\r\n\1 ***VIRUS*** \2\r\n", bundle.envelope.original_content, count=1)
+                bundle.envelope.original_content = re.sub(SUBJECT, br"\1\2 ***VIRUS*** \3\4", bundle.envelope.original_content, count=1)
+                self.Debug("Tag it virus, reason: TAG_VIRUS.", header=bundle.corr_id)
 
             # Apply ACTION to the email, can only apply one action
+            # ACTION_DEFAULT
             if result["action"] & macro.ACTION_DEFAULT:
                 bundle.status = 0
                 SMTP_result = self.send_email(bundle, user_profile)
+                self.Debug("Send to {0}, reason: ACTION_DEFAULT.".format(bundle.rcpt), header=bundle.corr_id)
 
                 # Check result and update bundle status
                 result = self.check_SMTP_session_bundle(bundle, SMTP_result)
+            # ACTION_PASS
             elif result["action"] & macro.ACTION_PASS:
                 bundle.status = 1
                 SMTP_result = self.send_email(bundle, user_profile)
+                self.Debug("Send to {0}, reason: ACTION_PASS.".format(bundle.rcpt), header=bundle.corr_id)
 
                 # Check result and update bundle status
                 result = self.check_SMTP_session_bundle(bundle, SMTP_result)
+            # ACTION_DENY
             elif result["action"] & macro.ACTION_DENY:
-                result = (451, "Rejected by receiver's content filter, reason: DENY")
-                self.Debug("Remove it, reason: {0}".format(result), header=bundle.corr_id)
+                self.Debug("Remove it, reason: ACTION_DENY.", header=bundle.corr_id)
+                result = (451, "Rejected by receiver's content filter, reason: ACTION_DENY")
+            # ACTION_FORWARD
             elif result["action"] & macro.ACTION_FORWARD:
-                result = (451, "Rejected by receiver's content filter, reason: FORWARD (NOT IMPLEMENT)")
-                self.Debug("Remove it, reason: {0}".format(result), header=bundle.corr_id)
+                if "forward" in result:
+                    # Reset receiver's information
+                    bundle.rcpt = result["forward"]
+                    bundle.envelope.rcpt_tos = [result["forward"]]
+
+                    bundle.status = 1
+                    SMTP_result = self.send_email(bundle, None)
+                    self.Debug("Forward to {0}, reason: ACTION_FORWARD.".format(result["forward"]), header=bundle.corr_id)
+                else:
+                    bundle.status = 1
+                    SMTP_result = self.send_email(bundle, user_profile)
+                    self.Debug("Fall back to ACTION_PASS, reason: ACTION_FORWARD with no forward address.", header=bundle.corr_id)
+
+                # Check result and update bundle status
+                result = self.check_SMTP_session_bundle(bundle, SMTP_result)
+            # ACTION_QUARATINE
             elif result["action"] & macro.ACTION_QUARANTINE:
-                result = (451, "Rejected by receiver's content filter, reason: QUARATINE (NOT IMPLEMENT)")
-                self.Debug("Remove it, reason: {0}".format(result), header=bundle.corr_id)
+                self.Debug("Remove it, reason: Not implement ACTION_QUARATINE.", header=bundle.corr_id)
+                result = (451, "Rejected by receiver's content filter, reason: ACTION_QUARATINE (NOT IMPLEMENT)")
+            # OTHERS
             else:
-                result = (451, "Rejected by receiver's content filter, reason: {0}".format(result["action"]))
-                self.Debug("Remove it, reason: {0}".format(result), header=bundle.corr_id)
+                self.Debug("Remove it, reason: Unknown action code {0}.".format(result["action"]), header=bundle.corr_id)
+                result = (451, "Rejected by receiver's content filter, reason: Unknown action code {0}.".format(result["action"]))
 
             # Pop finished job from SMTP_session_bundles
             self.finish(bundle.corr_id)
         except KeyError as e:
             self.Debug("No such key {0} in client's response.".format(e), header=bundle.corr_id)
+        except Exception as e:
+            self.Debug("Something wrong happened during apply_action(), reason: {0}.".format(e), header=bundle.corr_id)
 
     # returnmq executor
     async def returnmq_executor(self):

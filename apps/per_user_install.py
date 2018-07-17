@@ -139,6 +139,6 @@ if __name__ == "__main__":
         if len(args) == 3:
             install = per_user_install(host=args[1], vhost=args[2])
         else:
-            print("./per_user_install.py [rabbitmq_host] [vhost]")
+            print("./per_user_install.py {rabbitmq_host} {rabbitmq_vhost}")
     except KeyboardInterrupt:
         print(" [*] Signal Catched. Quit.")

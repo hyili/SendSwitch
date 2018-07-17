@@ -2,15 +2,40 @@
 An `Email-Content-Filter-Framework` project is a user-aware content filter which works for Postfix.
 
 ## About
-A `Content-Filter-Server` is a content filter program, which receives emails via SMTP, and pushes emails into MessageQueue as RPC requests.
-With combination of MessageQueue's Pub/Sub, RPC, Authentication, and Authorization, which gave `Content-Filter-Server` the ability to distribute the incoming emails to many of individual `Content-Filter-Clients`.
-A `Content-Filter-Client` gets its own emails from MessageQueue, and can apply lots of processors on it, such as filtering, webhook, or notifying to other apps.
-After handled by processors, `Content-Filter-Client` can send a RPC response back into MessageQueue with an action in it, that tells the `Content-Filter-Server` how to handle this email.
+A `Content-Filter-Server` is a Postfix content filter program, which receives emails via SMTP, and packs emails and pushes packed messages into MessageQueue.
+With combination of MessageQueue's Pub/Sub, RPC, Authentication, and Authorization, which gave `Content-Filter-Server` the ability to distribute the incoming emails as RPC reuqests to many of individual `Content-Filter-Clients`.
+A `Content-Filter-Client` gets its own packed messages from MessageQueue, and can apply lots of processors on it, such as filtering, webhook processors, or even a sub-email system.
+For each of packed message, after handled by series of processors, `Content-Filter-Client` can choose to send a RPC response back into MessageQueue with an action in it, that tells the `Content-Filter-Server` how to handle this email.
 
-With this project, traditional mailbox or maildir delivery may become a backup method of email delivery.
+With this project, traditional mailbox or maildir delivery may become a backup method of email-based apps.
 
-The `Email-Content-Filter-Framewor` may work with other SMTP MTAs, because of its support of SMTP, but we haven't tested yet.
+Because of its support of SMTP, the `Email-Content-Filter-Framewor` may work with or without other SMTP MTAs, but we have only tested it with Postfix.
 It requires at least Python 3.5 to run.
+
+## Features
+- [x] Performance is Okay.
+	- [x] Based on aiosmtpd with asynchronous smtpd.
+	- [x] Based on smtplib and asyncio run_in_executor() to handle non-blocking send_mail function.
+- [x] Simple Web GUI interface.
+- [x] Simple logging mechanism for debugging.
+- [x] Multiple sample processors for `Content-Filter-Clients` to use.
+	- [x] Sample PASS processor
+	- [x] Webhook processor
+	- [x] Blacklist Whitelist processor
+	- [x] Anti-Spam processor with SpamAssassin
+	- [x] Anti-Virus processor with ClamAV
+- [x] SMTP API support
+	- [x] Using JWT for user verification
+- [x] Response actions support
+	- [x] PENDING
+	- [x] PASS
+	- [x] DENY
+	- [x] FORWARD
+	- [ ] QUARATINE
+- [x] Response tags support
+	- [x] TAG_NOTHING
+	- [x] TAG_SPAM
+	- [x] TAG_VIRUS
 
 ## Related Projects
 - aiosmtpd: https://github.com/aio-libs/aiosmtpd
@@ -28,6 +53,14 @@ git submodule update --init
 Required packages are listed in requirements file.
 use following command to install them
 ```
+pip3 install -r requirements
+```
+or you can choose to use venv first
+```
+python3 -m venv /path/to/new/virtual/environment
+mv Email-Content-Filter-Framework/ /path/to/new/virtual/environment
+cd /path/to/new/virtual/environment
+source bin/activate
 pip3 install -r requirements
 ```
 #### RabbitMQ
@@ -74,6 +107,40 @@ localhost:10025	inet	n		-		n		-		10		smtpd
 ```
 ./framework_server.py
 ```
+- Web Management Page
+	- http://localhost:60666/
+	- http://localhost:60666/manage
+	- http://localhost:60666/monitor
+- SMTP API (UTF8)
+	- http://localhost:60666/api_key
+	- http://localhost:60666/smtp
+```
+POST-Request
+Content-Type: application/json
+{
+	"data": {
+		"api_key": "API_KEY",
+		"mail_from": "user1@domain",
+	    "mail_to": ["user2@domain", "user3@domain"],
+		"cc_to": ["user4@domain", "user5@domain"],
+	    "bcc_to": ["user6@domain", "user7@domain"],
+		"subject": "SUBJECT",
+	    "content": "CONTENT"
+    }
+}
+```
+#### apps/install.py
+- Setup for global MessageQueue setting
+- sample usage
+```
+./install.py {username}@{domain}
+```
+#### apps/per_user_install.py
+- Setup for per-user MessageQueue setting
+- sample usage
+```
+./per_user_install.py {rabbitmq_host} {rabbitmq_vhost}
+```
 
 ## Client-Side Environment Setup
 ```
@@ -88,48 +155,19 @@ git submodule update --init
 ```
 ./framework_client.py
 ```
-
-## Other Scripts
-#### apps/install.py
-- Setup for global MessageQueue setting
-- sample usage
-```
-./install.py
-```
-#### apps/per_user_install.py
-- Setup for per-user MessageQueue setting
-- sample usage
-```
-./per_user_install.py [username]
-```
+- Web Management Page
+	- http://localhost:61666/
+	- http://localhost:61666/manage
+	- http://localhost:61666/monitor
+#### config/processors.py
+- Module of processors for framework_client.py to use
+- You can develop your own processors here, and set it in config/client_config.py.
 
 #### tests/example_server.py
 - Example SMTP server using Python
 
 #### tests/example_client.py
 - Example SMTP client for sending email using Python
-
-## Features
-- [x] Performance is Okay.
-	- [x] Based on aiosmtpd with asynchronous smtpd
-	- [x] Based on smtplib and asyncio run_in_executor() to handle non-blocking send_mail function
-- [x] Very simple Web GUI interface.
-- [x] Incoming emails to JSON, to Webhook, to file.
-- [x] Simple logging mechanism.
-- [x] Multiple Processors for Clients to use.
-	- [x] Sample PASS processor
-	- [x] Webhook processor
-	- [x] Blacklist Whitelist processor
-- [ ] Outgoing emails including Send Email API.
-- [ ] DSN & RSN
-- [ ] Response actions
-	- [x] PENDING
-	- [x] PASS
-	- [x] DENY
-	- [ ] SPAM
-	- [ ] VIRUS
-	- [ ] FORWARD
-	- [ ] QUARATINE
 
 ## Naming Rule
 #### class

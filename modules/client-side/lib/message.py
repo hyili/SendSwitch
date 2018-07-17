@@ -9,9 +9,12 @@ class Message():
         self.origin_result = origin_result
 
         self.decoded_msg = None
+
         self.current_action = origin_action
         self.current_result = origin_result
         self.current_msg = None
+
+        self.forward_address = None
 
     def setDecodedMsg(self, decoded_msg):
         self.decoded_msg = decoded_msg
@@ -35,7 +38,13 @@ class Message():
         return self.current_result
 
     def setAction(self, action):
-        self.current_action = self.current_action | action
+        self.current_action = action
 
     def getAction(self):
         return self.current_action
+
+    def setForward(self, forward):
+        self.forward_address = forward
+
+    def getForward(self):
+        return self.forward_address

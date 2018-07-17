@@ -104,8 +104,8 @@ class Receiver():
             # it will be removed until message head up the limit
             expire = self.timeout * 1000
 
-            response = Response(timestamp=timestamp, expire=expire,
-                action=current_msg.getAction(), result=current_msg.getResult())
+            response = Response(timestamp=timestamp, expire=expire, action=current_msg.getAction(),
+                result=current_msg.getResult(), forward=current_msg.getForward())
 
             # send response backto default exchanger
             channel.basic_publish(exchange='',
