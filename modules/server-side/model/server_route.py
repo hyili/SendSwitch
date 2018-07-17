@@ -16,6 +16,9 @@ class ServerRoutes():
             format(db_user, db_passwd, db_host, db_port, db_name), pool_recycle=3600)
         self.sessionmaker = sessionmaker(bind=self.engine)
 
+        # try to connect to mysql
+        self.engine.connect()
+
         # logger setup
         self.logger = logger
 
