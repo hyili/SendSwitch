@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Monitoring Page</title>
+    <title>{{ account }}'s Monitoring Page</title>
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -43,24 +43,35 @@
         });
     });
     
+    function change_page(path) {
+        document.location.href = path;
+    }
     </script>
 </head>
 
 <body>
-    <div class="container-fluid">
-        <h4 class="display-4">Server Throughput</h4>
-        <div id="board" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"> [*] GOGOGO~</div>
+    <div class="container">
+        <div class="container-fluid">
+            <h3>Page</h3>
+            <ul>
+                <li>Switch between Management Page and Monitor Page</li>
+                <button onclick="change_page('manage')" class="btn btn-outline-info">Management Page</button>
+                <button class="btn btn-outline-info active">Monitor Page</button>
+            </ul>
+            <h3>Server Throughput</h3>
+            <div id="board" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"> [*] GOGOGO~</div>
 
-        <h4 class="display-4">Echo Test & Log</h4>
-        <form id="emit" method="POST" action="#">
-            <div class="form-group">
-                <input type="text" class="form-control" name="emit_data" id="emit_data" placeholder="Message">
-            </div>
-            <div class="form-group">
-                <input type="submit" class="btn btn-primary" value="Echo">
-            </div>
-        </form>
-        <div id="log" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"> [*] GOGOGO~</div>
+            <h3>Echo Test & Log</h3>
+            <form id="emit" method="POST" action="#">
+                <div class="form-group">
+                    <input type="text" class="form-control" name="emit_data" id="emit_data" placeholder="Message">
+                </div>
+                <div class="form-group">
+                    <input type="submit" class="btn btn-primary" value="Echo">
+                </div>
+            </form>
+            <div id="log" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"> [*] GOGOGO~</div>
+        </div>
     </div>
 </body>
 

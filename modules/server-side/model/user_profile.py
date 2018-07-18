@@ -149,7 +149,7 @@ class Users():
 
         return user
 
-    def getEmailList(self):
+    def getUserList(self):
         emails = None
         session = self.sessionmaker()
         try:
@@ -160,7 +160,7 @@ class Users():
         except Exception as e:
             emails = None
             self.Debug(e)
-            self.Debug("Something wrong happened during getEmailList(), reason: {0}.".format(e))
+            self.Debug("Something wrong happened during getUserList(), reason: {0}.".format(e))
 
         session.close()
 

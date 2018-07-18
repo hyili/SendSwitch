@@ -15,6 +15,8 @@ import smtplib
 import datetime
 import traceback
 import concurrent.futures
+import email
+from email import policy
 
 from aiosmtpd.handlers import Proxy
 from aiosmtpd.smtp import Session
@@ -110,6 +112,7 @@ class SMTPProxyHandler(Proxy):
         bundle = self.SMTP_session_bundles.pop(corr_id, None)
 
         user_profile = self.registered_users.get(bundle.rcpt)
+        # TODO: current
 
     def send_email(self, bundle, user_profile):
         # TODO: loop prevention
@@ -145,47 +148,65 @@ class SMTPProxyHandler(Proxy):
         data = EMPTYBYTES.join(lines)
 
         try:
-            refused = self._send_email(bundle.envelope.mail_from, bundle.envelope.rcpt_tos, data, next_hop_server_hostname, next_hop_server_port)
+            refused = self._send_email(bundle, data, next_hop_server_hostname, next_hop_server_port)
         except Exception as e:
-            self.Debug("Something wrong happened during send_email(), reason: {0}.".format(e), header=bundle.corr_id)
             return (471, "Failed, reason: {0}".format(e))
 
         # TODO: this will have problem when group mailing is implemented
         return refused[bundle.rcpt]
 
-    def _send_email(self, mail_from, rcpt_tos, data, next_hop_server_hostname, next_hop_server_port):
+    def _send_email(self, bundle, data, next_hop_server_hostname, next_hop_server_port):
         refused = {}
+        mail_from = bundle.envelope.mail_from
+        rcpt_tos = bundle.envelope.rcpt_tos
 
         try:
             s = smtplib.SMTP()
             s.connect(next_hop_server_hostname, next_hop_server_port)
             try:
+                # TODO: This won't return message after DATA command, though it is well-defined with SMTPUTF8
+                #msg = email.message_from_bytes(data)
+                #refused[rcpt_tos[0]] = 250, s.send_message(msg, from_addr=mail_from, to_addrs=rcpt_tos)
+
                 # Though s.sendmail can done almost everything, it cannot get the reply
                 s.docmd("HELO {0}".format(self.config.kwargs["host_domain"]))
-                s.docmd("MAIL FROM:<{0}>".format(mail_from))
+                s.docmd("MAIL FROM:", "<{0}>".format(mail_from))
                 for rcpt in rcpt_tos:
-                    s.docmd("RCPT TO:<{0}>".format(rcpt))
+                    s.docmd("RCPT TO:", "<{0}>".format(rcpt))
                 s.docmd("DATA")
                 s.send(data)
                 s.send("\r\n.\r\n")
                 reply = s.getreply()
                 for rcpt in rcpt_tos:
                     refused[rcpt] = (reply[0], str(reply[1].decode("utf-8", errors="replace")))
+            except UnicodeEncodeError as e:
+                msg = email.message_from_bytes(data, policy=policy.SMTPUTF8)
+                for rcpt in rcpt_tos:
+                    refused[rcpt] = 250, s.send_message(msg, from_addr=mail_from, to_addrs=rcpt, mail_options=["SMTPUTF8"])
+            except smtplib.SMTPRecipientsRefused as e:
+                self.Debug("Something wrong happened during _send_email(), reason: {0}.".format(e), header=bundle.corr_id)
+                refused = e.recipients
+            except smtplib.SMTPException as e:
+                self.Debug("Something wrong happened during _send_email(), reason: {0}.".format(e), header=bundle.corr_id)
+                # All recipients were refused.  If the exception had an associated
+                # error code, use it.  Otherwise, fake it with a non-triggering
+                # exception code.
+                errcode = getattr(e, "smtp_code", -1)
+                errmsg = getattr(e, "smtp_error", str(e))
+                for rcpt in rcpt_tos:
+                    refused[rcpt] = (errcode, errmsg)
+            except Exception as e:
+                self.Debug("Something wrong happened during _send_email(), reason: {0}.".format(e), header=bundle.corr_id)
+                errcode = getattr(e, "smtp_code", str(e)) if hasattr(e, "smtp_code") else -2
+                errmsg = getattr(e, "smtp_error", str(e)) if hasattr(e, "smtp_error") else str(e)
+                for rcpt in rcpt_tos:
+                    refused[rcpt] = (errcode, errmsg)
             finally:
                 s.quit()
-        except smtplib.SMTPRecipientsRefused as e:
-            refused = e.recipients
-        except smtplib.SMTPException as e:
-            # All recipients were refused.  If the exception had an associated
-            # error code, use it.  Otherwise, fake it with a non-triggering
-            # exception code.
-            errcode = getattr(e, "smtp_code", -1)
-            errmsg = getattr(e, "smtp_error", str(e))
-            for rcpt in rcpt_tos:
-                refused[rcpt] = (errcode, errmsg)
         except Exception as e:
-            errcode = -2
-            errmsg = str(e)
+            self.Debug("Something wrong happened during _send_email(), reason: {0}.".format(e), header=bundle.corr_id)
+            errcode = getattr(e, "smtp_code", str(e)) if hasattr(e, "smtp_code") else -2
+            errmsg = getattr(e, "smtp_error", str(e)) if hasattr(e, "smtp_error") else str(e)
             for rcpt in rcpt_tos:
                 refused[rcpt] = (errcode, errmsg)
 
@@ -214,6 +235,7 @@ class SMTPProxyHandler(Proxy):
 
                 # Check if the receiver is registered
                 user_profile = self.registered_users.get(rcpt)
+                # TODO: current
 
                 # Send message to next hop, run_in_executor to prevent blocking
                 loop = asyncio.get_event_loop()
@@ -297,8 +319,7 @@ class SMTPMQHandler(SMTPProxyHandler):
                 self.Debug("Something wrong happened during finish(), reason: {0}.".format(e), header=corr_id)
 
         user_profile = self.registered_users.get(bundle.rcpt)
-
-        # TODO: remove from queuing list
+        # TODO: current
 
     # backup whole content of envelope
     def backup(self, bundle):
@@ -476,8 +497,7 @@ class SMTPMQHandler(SMTPProxyHandler):
 
                 # Check if the receiver is using this service
                 user_profile = self.registered_users.get(rcpt)
-
-                # TODO: Add corr_id to user's queuing_list
+                # TODO: current
 
                 # Send message to MQ
                 self.send(bundle, user_profile=user_profile)

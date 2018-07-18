@@ -105,45 +105,62 @@ def ManagementUI(config):
     # Login Pages
     @app.route("/", methods=["Get"])
     def api_root():
-        return render_template("helloworld.html"), 200
+        try:
+            # Get User's ip
+            ip = request.remote_addr
+
+            return render_template("helloworld.html"), 200
+        except Exception as e:
+            Debug("Something wrong happened during api_root(), remote_addr: {0}, reason: {1}.".format(ip, e))
+            return error_page("Error", "Something went wrong."), 500
 
     # Flask-Login handle login user action page
     @app.route("/login", methods=["Post"])
     def login():
-        # fetch form variable
-        email = request.form.get("email")
-        passwd = request.form.get("passwd")
-        remember = request.form.get("remember")
-        (account, domain) = email.split("@")
+        try:
+            # Get User's ip
+            ip = request.remote_addr
 
-        if domain == email_domain:
-            if ldap.ldap_authenticate(account, passwd, ldap_settings):
-                # Create user_profile if nothing found
-                user_profile = registered_users.get(email)
-                if not user_profile:
-                    user_profile = registered_users.add(email=email, timeout=timeout)
+            # fetch form variable
+            email = request.form.get("email")
+            passwd = request.form.get("passwd")
+            remember = request.form.get("remember")
+            (account, domain) = email.split("@")
 
-                if remember:
-                    login_user(user_profile, remember=True)
+            if domain == email_domain:
+                if ldap.ldap_authenticate(account, passwd, ldap_settings):
+                    # Create user_profile if nothing found
+                    user_profile = registered_users.get(email)
+                    if not user_profile:
+                        user_profile = registered_users.add(email=email, timeout=timeout)
+
+                    if remember:
+                        login_user(user_profile, remember=True)
+                    else:
+                        login_user(user_profile)
+
+                    next = request.args.get("next")
+                    return redirect(next or url_for("manage"))
                 else:
-                    login_user(user_profile)
-
-                next = request.args.get("next")
-                return redirect(next or url_for("manage"))
+                    flash("Error! Recheck your email and password!")
             else:
-                flash("Error! Recheck your email and password!")
-        else:
-            flash("Are you sure that domain ({0}) is correct?".format(domain))
+                flash("Are you sure that domain ({0}) is correct?".format(domain))
 
-        return render_template("helloworld.html"), 200
+            return render_template("helloworld.html"), 200
+        except Exception as e:
+            Debug("Something wrong happened during login(), remote_addr: {0}, reason: {1}.".format(ip, e))
+            return error_page("Error", "Something went wrong."), 500
 
     # Flask-Login handle logout user action page
     @app.route("/logout", methods=["Get", "Post"])
     def logout():
         try:
+            # Get User's ip
+            ip = request.remote_addr
+
             logout_user()
         except Exception as e:
-            Debug("Something wrong happened during logout(), reason: {0}.".format(e))
+            Debug("Something wrong happened during logout(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
         flash("Logged out successfully!")
@@ -154,34 +171,44 @@ def ManagementUI(config):
     @app.route("/manage", methods=["Get"])
     @login_required
     def manage():
-        # get user "email" not "id" from current_user
-        (account, domain) = current_user.get_id().split("@")
-        _user_routes = registered_user_routes.getUserRoutes(current_user.id)
-        user_routes = dict()
-        if _user_routes:
-            for route in _user_routes:
-                user_routes[route.src.sid] = route
+        try:
+            # Get User's ip
+            ip = request.remote_addr
 
-        _server_routes = registered_server_routes.getServerRoutes()
-        server_routes = dict()
-        if _server_routes:
-            for route in _server_routes:
-                server_routes[route.src.sid] = route
+            # get user "email" not "id" from current_user
+            (account, domain) = current_user.get_id().split("@")
+            _user_routes = registered_user_routes.getUserRoutes(current_user.id)
+            user_routes = dict()
+            if _user_routes:
+                for route in _user_routes:
+                    user_routes[route.src.sid] = route
 
-        servers = registered_servers.getList()
-        src_servers = registered_servers.getSourceList()
-        dst_servers = registered_servers.getDestList()
+            _server_routes = registered_server_routes.getServerRoutes()
+            server_routes = dict()
+            if _server_routes:
+                for route in _server_routes:
+                    server_routes[route.src.sid] = route
 
-        return render_template("manage.html", user=current_user, user_routes=user_routes,
-            servers=servers, server_routes=server_routes,
-            src_servers=src_servers, dst_servers=dst_servers,
-            account=account, domain=domain), 200
+            servers = registered_servers.getList()
+            src_servers = registered_servers.getSourceList()
+            dst_servers = registered_servers.getDestList()
+
+            return render_template("manage.html", user=current_user, user_routes=user_routes,
+                servers=servers, server_routes=server_routes,
+                src_servers=src_servers, dst_servers=dst_servers,
+                account=account, domain=domain), 200
+        except Exception as e:
+            Debug("Something wrong happened during manage(), remote_addr: {0}, reason: {1}.".format(ip, e))
+            return error_page("Error", "Something went wrong."), 500
 
     # TODO: install to rabbitmq?
     @app.route("/service/activate", methods=["Post"])
     @login_required
     def activate_service():
         try:
+            # Get User's ip
+            ip = request.remote_addr
+
             if current_user.serviceStatus():
                 return "Already activated.", 200
             else:
@@ -190,7 +217,7 @@ def ManagementUI(config):
                 else:
                     return "Failed", 200
         except Exception as e:
-            Debug("Something wrong happened during activate_service(), reason: {0}.".format(e))
+            Debug("Something wrong happened during activate_service(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
     # TODO: deinstall from rabbitmq?
@@ -198,6 +225,9 @@ def ManagementUI(config):
     @login_required
     def deactivate_service():
         try:
+            # Get User's ip
+            ip = request.remote_addr
+
             if current_user.serviceStatus():
                 if registered_users.deactivateService(current_user.id):
                     return "OK", 200
@@ -206,13 +236,16 @@ def ManagementUI(config):
             else:
                 return "Already deactivated.", 200
         except Exception as e:
-            Debug("Something wrong happened during deactivate_service(), reason: {0}.".format(e))
+            Debug("Something wrong happened during deactivate_service(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
     @app.route("/route/activate", methods=["Post"])
     @login_required
     def activate_route():
         try:
+            # Get User's ip
+            ip = request.remote_addr
+
             if current_user.routeStatus():
                 return "Already activated.", 200
             else:
@@ -221,13 +254,16 @@ def ManagementUI(config):
                 else:
                     return "Failed", 200
         except Exception as e:
-            Debug("Something wrong happened during activate_route(), reason: {0}.".format(e))
+            Debug("Something wrong happened during activate_route(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
     @app.route("/route/deactivate", methods=["Post"])
     @login_required
     def deactivate_route():
         try:
+            # Get User's ip
+            ip = request.remote_addr
+
             if current_user.routeStatus():
                 if registered_users.deactivateRoute(current_user.id):
                     return "OK", 200
@@ -236,19 +272,22 @@ def ManagementUI(config):
             else:
                 return "Already deactivated.", 200
         except Exception as e:
-            Debug("Something wrong happened during deactivate_route(), reason: {0}.".format(e))
+            Debug("Something wrong happened during deactivate_route(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
     @app.route("/route", methods=["Post"])
     @login_required
     def route():
-        local_sid = request.form.get("local_sid")
-        remote_sid = request.form.get("remote_sid")
-
-        local = registered_servers.get(local_sid)
-        remote = registered_servers.get(remote_sid)
-
         try:
+            # Get User's ip
+            ip = request.remote_addr
+
+            local_sid = request.form.get("local_sid")
+            remote_sid = request.form.get("remote_sid")
+
+            local = registered_servers.get(local_sid)
+            remote = registered_servers.get(remote_sid)
+
             if local and remote:
                 route = registered_user_routes.add(current_user.id, local.id, remote.id)
                 if route:
@@ -260,21 +299,31 @@ def ManagementUI(config):
 
             return "Unchanged", 200
         except Exception as e:
-            Debug("Something wrong happened during route(), reason: {0}.".format(e))
+            Debug("Something wrong happened during route(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
     @app.route("/show/registered_users", methods=["Post"])
     @login_required
     def show_registered_users():
-        email_list = registered_users.getEmailList()
-        ret = str(email_list)
+        try:
+            # Get User's ip
+            ip = request.remote_addr
 
-        return ret, 200
+            user_list = registered_users.getUserList()
+            ret = str(user_list)
+
+            return ret, 200
+        except Exception as e:
+            Debug("Something wrong happened during show_registered_users(), remote_addr: {0}, reason: {1}.".format(ip, e))
+            return error_page("Error", "Something went wrong."), 500
 
     @app.route("/show/route", methods=["Post"])
     @login_required
     def show_route():
         try:
+            # Get User's ip
+            ip = request.remote_addr
+
             routes = registered_user_routes.getUserRoutes(current_user.id)
             if routes:
                 ret = str([(route.src.sid, route.dest.sid) for route in routes])
@@ -283,7 +332,7 @@ def ManagementUI(config):
 
             return ret, 200
         except Exception as e:
-            Debug("Something wrong happened during show_route(), reason: {0}.".format(e))
+            Debug("Something wrong happened during show_route(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
     # TODO
@@ -291,9 +340,16 @@ def ManagementUI(config):
     @login_required
     def flush_queuing_mail():
         try:
-            return "Wait for implementation", 200
+            # Get User's ip
+            ip = request.remote_addr
+
+#            processing_emails = current_user.getProcessingEmailList()
+#            for email in processing_emails:
+#                flush.send(email)
+
+            return "Waiting for implement.", 200
         except Exception as e:
-            Debug("Something wrong happened during flush_queuing_mail(), reason: {0}.".format(e))
+            Debug("Something wrong happened during flush_queuing_mail(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
     # Error Handler
@@ -307,14 +363,27 @@ def ManagementUI(config):
 
     # Monitor Page
     @app.route("/monitor")
+    @login_required
     def monitor():
-        return render_template("monitor.html"), 200
+        try:
+            # Get User's ip
+            ip = request.remote_addr
+
+            # get user "email" not "id" from current_user
+            (account, domain) = current_user.get_id().split("@")
+
+            return render_template("monitor.html", account=account, domain=domain), 200
+        except Exception as e:
+            Debug("Something wrong happened during monitor(), remote_addr: {0}, reason: {1}.".format(ip, e))
+            return error_page("Error", "Something went wrong."), 500
 
     @socketio.on("client_event", namespace="/monitor")
+    @login_required
     def client_msg(msg):
         emit("server_response", {"data": msg["data"]}, namespace="/monitor")
 
     @socketio.on("connect_event", namespace="/monitor")
+    @login_required
     def connected_msg(msg):
         emit("server_response", {"data": msg["data"]}, namespace="/monitor")
 
@@ -323,6 +392,9 @@ def ManagementUI(config):
     @login_required
     def api_key():
         try:
+            # Get User's ip
+            ip = request.remote_addr
+
             current_time = datetime.datetime.utcnow()
             uid = current_user.id
             email = "{0}@{1}".format(current_user.account, current_user.domain)
@@ -340,12 +412,15 @@ def ManagementUI(config):
 
             return api_key, 200
         except Exception as e:
-            Debug("Something wrong happened during api_key(), reason: {0}.".format(e))
+            Debug("Something wrong happened during api_key(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
     @app.route("/smtp", methods=["Post"])
     def smtp():
         try:
+            # Get User's ip
+            ip = request.remote_addr
+
             # Request
             # {
             #   "data": {
@@ -378,7 +453,7 @@ def ManagementUI(config):
                 if current > expire:
                     return "Expired api_key.", 403
             except Exception as e:
-                print(e)
+                Debug("Something wrong happened during smtp(), remote_addr: {0}, reason: {1}.".format(ip, e))
                 return "Invalid api_key.", 403
 
             # Check if the incoming request is valid
@@ -410,8 +485,10 @@ def ManagementUI(config):
                 subject = content["data"]["subject"]
                 content = content["data"]["content"]
             except:
+                Debug("Something wrong happened during smtp(), remote_addr: {0}, reason: {1}.".format(ip, e))
                 return "Some required keys are missing, please recheck.", 400
 
+            # TODO: Blocking problem
             ## Send Mail Here ##
             try:
                 msg = email.message.EmailMessage()
@@ -426,15 +503,15 @@ def ManagementUI(config):
 
                 s = smtplib.SMTP()
                 s.connect(smtp_api_host, smtp_api_port)
-                s.send_message(msg, to_addrs=to_list)
+                s.send_message(msg, from_addr=mail_from, to_addrs=to_list, mail_options=["SMTPUTF8"])
                 s.quit()
             except Exception as e:
-                Debug("Something wrong happened during smtp(), reason: {0}.".format(e))
+                Debug("Something wrong happened during smtp(), remote_addr: {0}, reason: {1}.".format(ip, e))
                 return error_page("Error", "Something went wrong."), 500
 
             return "OK, mail sent.", 200
         except Exception as e:
-            Debug("Something wrong happened during smtp(), reason: {0}.".format(e))
+            Debug("Something wrong happened during smtp(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
     socketio.start_background_task(target=background_thread)

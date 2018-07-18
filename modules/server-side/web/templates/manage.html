@@ -179,7 +179,6 @@
                     alert("Response: " + data);
                 }
             );
-            location.reload();
         }
 
         function POST_to_smtp_api() {
@@ -195,12 +194,23 @@
                 alert("Response: " + jqXHR.responseText);
             });
         }
+
+        function change_page(path) {
+            document.location.href = path;
+        }
+
     </script>
 </head>
 
 <body onload="init()">
     <div class="container">
         <div class="container-fluid">
+            <h3>Page</h3>
+            <ul>
+                <li>Switch between Management Page and Monitor Page</li>
+                <button class="btn btn-outline-info active">Management Page</button>
+                <button onclick="change_page('monitor')" class="btn btn-outline-info">Monitor Page</button>
+            </ul>
             <h3>Maintain Incoming Email</h3>
             <ul>
                 <li>You can get your email through your SDK.</li>
