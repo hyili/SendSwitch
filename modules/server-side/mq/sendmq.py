@@ -9,7 +9,7 @@ import requests
 from lib.protocols import Request
 
 class Sender():
-    def __init__(self, user_profile, logger, timeout=600, exchange_id="random", routing_keys=["random"],
+    def __init__(self, user, logger, timeout=600, exchange_id="random", routing_keys=["random"],
         host="localhost", port=5672, silent_mode=False):
 
         # rabbitmq host
@@ -22,7 +22,7 @@ class Sender():
         self.routing_keys = routing_keys
 
         # user profile
-        self.user_profile = user_profile
+        self.user = user
 
         # connection to rabbitmq & channel declaration
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, port=self.port))
@@ -62,7 +62,7 @@ class Sender():
             self.logger.info(" [*] {0}".format(msg))
 
     def reinit(self):
-        self.__init__(user_profile=self.user_profile,
+        self.__init__(user=self.user,
             logger=self.logger,
             exchange_id=self.exchange_id,
             routing_keys=self.routing_keys,
@@ -94,7 +94,7 @@ class Sender():
         timestamp = time.time()
         # message will not actually be removed when times up
         # it will be removed until message head up the limit
-        expire = (self.timeout if self.user_profile is None else self.user_profile.timeout) * 1000
+        expire = (self.timeout if self.user is None else self.user.timeout) * 1000
         request = Request(timestamp=timestamp, expire=expire, data=msg, result=result, action=action)
 
         try:

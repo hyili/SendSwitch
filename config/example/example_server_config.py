@@ -4,7 +4,7 @@ import logging
 
 from config_loader import Config
 from shared_queue import SharedQueue
-from model import user_profile, server_profile, user_route, server_route
+from model import users, servers, user_routes, server_routes, mails
 
 # DB setup
 db_host = "localhost"
@@ -28,7 +28,7 @@ logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
 # Server setup
-servers = server_profile.Servers(logger=logger, db_host=db_host, db_port=db_port, db_name=db_name,
+servers = servers.Servers(logger=logger, db_host=db_host, db_port=db_port, db_name=db_name,
     db_user=db_user, db_passwd=db_passwd)
 
 # For Postfix to inject email
@@ -62,17 +62,17 @@ default_user_routes = {
 }
 
 # Server Route setup
-server_routes = server_route.ServerRoutes(logger=logger, db_host=db_host, db_port=db_port,
+server_routes = server_routes.ServerRoutes(logger=logger, db_host=db_host, db_port=db_port,
     db_name=db_name, db_user=db_user, db_passwd=db_passwd)
 
 server_routes.add(Ao.id, Ai.id)
 
 # User setup with default route settings
-users = user_profile.Users(logger=logger, db_host=db_host, db_port=db_port, db_name=db_name,
+registered_users = users.Users(logger=logger, db_host=db_host, db_port=db_port, db_name=db_name,
     db_user=db_user, db_passwd=db_passwd)
 
 # User Route setup
-user_routes = user_route.UserRoutes(logger=logger, db_host=db_host, db_port=db_port,
+registered_user_routes = user_routes.UserRoutes(logger=logger, db_host=db_host, db_port=db_port,
     db_name=db_name, db_user=db_user, db_passwd=db_passwd)
 
 # LDAP settings
@@ -80,6 +80,10 @@ ldap_settings = dict()
 ldap_settings["use_ssl"] = False
 ldap_settings["user_dn"] = "uid={0},dc=,dc=,dc="
 ldap_settings["ldap_server"] = "localhost"
+
+# Mail setup
+processing_mails = mails.Mails(logger=logger, db_host=db_host, db_port=db_port,
+    db_name=db_name, db_user=db_user, db_passwd=db_passwd)
 
 # Output setup
 output = SharedQueue()
@@ -91,8 +95,9 @@ flush = SharedQueue()
 config = Config(framework_name="framework_name",
     registered_servers=servers,
     registered_server_routes=server_routes,
-    registered_users=users,
-    registered_user_routes=user_routes,
+    registered_users=registered_users,
+    registered_user_routes=registered_user_routes,
+    processing_mails=processing_mails,
     logger=logger,
     email_domain="hyili.idv.tw",
     host_domain="hyili.idv.tw",

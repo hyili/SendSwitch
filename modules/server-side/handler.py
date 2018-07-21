@@ -72,6 +72,7 @@ class SMTPProxyHandler(Proxy):
         self.registered_servers = config.kwargs["registered_servers"]
         self.registered_users = config.kwargs["registered_users"]
         self.registered_user_routes = config.kwargs["registered_user_routes"]
+        self.processing_mails = config.kwargs["processing_mails"]
         self.logger = config.kwargs["logger"]
 
         self.silent_mode = silent_mode
@@ -111,18 +112,19 @@ class SMTPProxyHandler(Proxy):
     def finish(self, corr_id):
         bundle = self.SMTP_session_bundles.pop(corr_id, None)
 
-        user_profile = self.registered_users.get(bundle.rcpt)
-        # TODO: current
+        user = self.registered_users.get(bundle.rcpt)
+        # TODO: current Do not need this
+        #self.processing_mails.updateMail(corr_id, -1)
 
-    def send_email(self, bundle, user_profile):
+    def send_email(self, bundle, user):
         # TODO: loop prevention
         # get next hostname and port according to user's settings
         next_hop_server_sid = self.next_hop_server.sid
         next_hop_server_hostname = self.next_hop_server.hostname
         next_hop_server_port = self.next_hop_server.port
 
-        if user_profile and user_profile.route_ready:
-            user_route = self.registered_user_routes.get(user_profile.id, self.current_server.id)
+        if user and user.route_ready:
+            user_route = self.registered_user_routes.get(user.id, self.current_server.id)
             if user_route:
                 next_hop_server_sid = user_route.dest.sid
                 next_hop_server_hostname = user_route.dest.hostname
@@ -234,12 +236,13 @@ class SMTPProxyHandler(Proxy):
                 )
 
                 # Check if the receiver is registered
-                user_profile = self.registered_users.get(rcpt)
-                # TODO: current
+                user = self.registered_users.get(rcpt)
+                # TODO: current Do not need this
+                #self.processing_mails.add(user.id, corr_id)
 
                 # Send message to next hop, run_in_executor to prevent blocking
                 loop = asyncio.get_event_loop()
-                task = loop.run_in_executor(None, self.send_email, bundle, user_profile)
+                task = loop.run_in_executor(None, self.send_email, bundle, user)
                 finished, pending = await asyncio.wait([task])
                 for r in finished:
                     SMTP_result = r.result()
@@ -318,8 +321,9 @@ class SMTPMQHandler(SMTPProxyHandler):
             except Exception as e:
                 self.Debug("Something wrong happened during finish(), reason: {0}.".format(e), header=corr_id)
 
-        user_profile = self.registered_users.get(bundle.rcpt)
+        user = self.registered_users.get(bundle.rcpt)
         # TODO: current
+        self.processing_mails.updateMail(corr_id, -1)
 
     # backup whole content of envelope
     def backup(self, bundle):
@@ -386,46 +390,46 @@ class SMTPMQHandler(SMTPProxyHandler):
                     # Resend message
                     # TODO: Mysql to store user profile information
                     # Check if the receiver is registered
-                    user_profile = self.registered_users.get(bundle.rcpt)
+                    user = self.registered_users.get(bundle.rcpt)
 
                     # TODO: Add corr_id to user's queuing_list
 
                     # Send message to MQ
-                    self.send(bundle, user_profile=user_profile)
+                    self.send(bundle, user=user)
                 except Exception as e:
                     self.Debug("Something wrong happened during recovery(), reason: {0}.".format(e), header=filename)
 
-    def send(self, bundle, user_profile=None, direct=False):
+    def send(self, bundle, user=None, direct=False):
         rcpt = "others"
         bundle = bundle
-        user_profile = user_profile
+        user = user
         exchange_id = ""
         routing_key = "return"
 
         if not direct:
             # Check if the recepient is in registered_users list
-            if user_profile and user_profile.service_ready:
+            if user and user.service_ready:
                 rcpt = bundle.rcpt
                 bundle = bundle
-                user_profile = user_profile
+                user = user
                 exchange_id = "mail"
                 routing_key = "mail.{0}".format(bundle.rcpt)
 
         self._send(
             rcpt=rcpt,
             bundle=bundle,
-            user_profile=user_profile,
+            user=user,
             exchange_id=exchange_id,
             routing_key=routing_key,
         )
 
-    def _send(self, rcpt, bundle, user_profile, exchange_id, routing_key):
+    def _send(self, rcpt, bundle, user, exchange_id, routing_key):
         # Check if the per user connection to MQ is established
         if rcpt not in self.MQ_handler_bundles:
             try:
                 sender = sendmq.Sender(exchange_id=exchange_id,
                     routing_keys=[routing_key],
-                    user_profile=user_profile,
+                    user=user,
                     host=self.MQ_host,
                     port=self.MQ_port,
                     logger=self.logger,
@@ -496,11 +500,12 @@ class SMTPMQHandler(SMTPProxyHandler):
                     self.backup(bundle)
 
                 # Check if the receiver is using this service
-                user_profile = self.registered_users.get(rcpt)
+                user = self.registered_users.get(rcpt)
                 # TODO: current
+                self.processing_mails.add(user.id, corr_id)
 
                 # Send message to MQ
-                self.send(bundle, user_profile=user_profile)
+                self.send(bundle, user=user)
 
                 # Transform to return string
                 result = "250 OK, saved as {0}".format(corr_id)
@@ -517,7 +522,7 @@ class SMTPMQHandler(SMTPProxyHandler):
     # handle_exception(error)
 
     # TODO: extend more action
-    def apply_action(self, bundle, result, user_profile):
+    def apply_action(self, bundle, result, user):
         # This handles the message that server send to itself
         try:
             # TAG the email, can use multiple tags here
@@ -534,7 +539,7 @@ class SMTPMQHandler(SMTPProxyHandler):
             # ACTION_DEFAULT
             if result["action"] & macro.ACTION_DEFAULT:
                 bundle.status = 0
-                SMTP_result = self.send_email(bundle, user_profile)
+                SMTP_result = self.send_email(bundle, user)
                 self.Debug("Send to {0}, reason: ACTION_DEFAULT.".format(bundle.rcpt), header=bundle.corr_id)
 
                 # Check result and update bundle status
@@ -542,7 +547,7 @@ class SMTPMQHandler(SMTPProxyHandler):
             # ACTION_PASS
             elif result["action"] & macro.ACTION_PASS:
                 bundle.status = 1
-                SMTP_result = self.send_email(bundle, user_profile)
+                SMTP_result = self.send_email(bundle, user)
                 self.Debug("Send to {0}, reason: ACTION_PASS.".format(bundle.rcpt), header=bundle.corr_id)
 
                 # Check result and update bundle status
@@ -563,7 +568,7 @@ class SMTPMQHandler(SMTPProxyHandler):
                     self.Debug("Forward to {0}, reason: ACTION_FORWARD.".format(result["forward"]), header=bundle.corr_id)
                 else:
                     bundle.status = 1
-                    SMTP_result = self.send_email(bundle, user_profile)
+                    SMTP_result = self.send_email(bundle, user)
                     self.Debug("Fall back to ACTION_PASS, reason: ACTION_FORWARD with no forward address.", header=bundle.corr_id)
 
                 # Check result and update bundle status
@@ -606,20 +611,20 @@ class SMTPMQHandler(SMTPProxyHandler):
                         continue
 
                     bundle = self.SMTP_session_bundles[corr_id]
-                    user_profile = self.registered_users.get(bundle.rcpt)
+                    user = self.registered_users.get(bundle.rcpt)
 
                     self.Debug("Received from MessageQueue.", header=corr_id)
 
                     # Sol.1 Apply the action that client told us
-                    #await self.apply_action(bundle, result, user_profile)
+                    #await self.apply_action(bundle, result, user)
 
                     # Sol.2 Prepare subtask for loop
-                    #subtasks.append(self.apply_action(bundle, result, user_profile))
+                    #subtasks.append(self.apply_action(bundle, result, user))
 
                     # Sol.3
                     # TODO: maybe grouping by each users?
                     # https://docs.python.org/3/library/asyncio-dev.html#handle-blocking-functions-correctly
-                    task = loop.run_in_executor(None, self.apply_action, bundle, result, user_profile)
+                    task = loop.run_in_executor(None, self.apply_action, bundle, result, user)
                     self.subtasks.append(task)
 
                 # Execute the subtask
@@ -665,9 +670,9 @@ class SMTPMQHandler(SMTPProxyHandler):
                     bundle = self.SMTP_session_bundles[corr_id]
                     last_retry_timestamp = bundle.last_retry_timestamp
                     rcpt = bundle.rcpt
-                    user_profile = self.registered_users.get(rcpt)
+                    user = self.registered_users.get(rcpt)
 
-                    self.send(bundle, user_profile=user_profile, direct=False)
+                    self.send(bundle, user=user, direct=False)
                     bundle.last_retry_timestamp = timestamp
                 else:
                     break
@@ -677,16 +682,16 @@ class SMTPMQHandler(SMTPProxyHandler):
                 bundle = self.SMTP_session_bundles[corr_id]
                 last_retry_timestamp = bundle.last_retry_timestamp
                 rcpt = bundle.rcpt
-                user_profile = self.registered_users.get(rcpt)
+                user = self.registered_users.get(rcpt)
 
                 # using default timeout if no user settings
-                if user_profile and user_profile.service_ready:
-                    timeout = user_profile.timeout * 2
+                if user and user.service_ready:
+                    timeout = user.timeout * 2
                 # reset timeout, *2 means to wait for MQ Message timeout first
                 else:
                     timeout = self.config.kwargs["timeout"] * 2
 
                 # check if time is up
                 if timestamp - last_retry_timestamp > timeout:
-                    self.send(bundle, user_profile=user_profile, direct=True)
+                    self.send(bundle, user=user, direct=True)
                     bundle.last_retry_timestamp = timestamp

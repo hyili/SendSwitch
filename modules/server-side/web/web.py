@@ -82,28 +82,28 @@ def ManagementUI(config):
     def Debug(msg):
         logger.info(" [*] {0}".format(msg))
 
-    # Flask-Login load user_profile from user_profile
+    # Flask-Login load user from user
     @login_manager.user_loader
     def load_user(email):
-        # Create user_profile if nothing found
-        user_profile = registered_users.get(email)
-        if not user_profile:
-            user_profile = registered_users.add(email=email, timeout=timeout)
+        # Create user if nothing found
+        user = registered_users.get(email)
+        if not user:
+            user = registered_users.add(email=email, timeout=timeout)
 
-        return user_profile
+        return user
 
-    # Flask-Login load user_profile from request coming from flask app
+    # Flask-Login load user from request coming from flask app
     @login_manager.request_loader
     def load_user_from_request(request):
         # url args
         email = request.args.get("email")
 
-        # Create user_profile if nothing found
-        user_profile = registered_users.get(email)
-        if not user_profile:
-            user_profile = registered_users.add(email=email, timeout=timeout)
+        # Create user if nothing found
+        user = registered_users.get(email)
+        if not user:
+            user = registered_users.add(email=email, timeout=timeout)
 
-        return user_profile
+        return user
 
     # Login Pages
     @app.route("/", methods=["Get"])
@@ -132,15 +132,15 @@ def ManagementUI(config):
 
             if domain == email_domain:
                 if ldap.ldap_authenticate(account, passwd, ldap_settings):
-                    # Create user_profile if nothing found
-                    user_profile = registered_users.get(email)
-                    if not user_profile:
-                        user_profile = registered_users.add(email=email, timeout=timeout)
+                    # Create user if nothing found
+                    user = registered_users.get(email)
+                    if not user:
+                        user = registered_users.add(email=email, timeout=timeout)
 
                     if remember:
-                        login_user(user_profile, remember=True)
+                        login_user(user, remember=True)
                     else:
-                        login_user(user_profile)
+                        login_user(user)
 
                     next = request.args.get("next")
                     return redirect(next or url_for("manage"))

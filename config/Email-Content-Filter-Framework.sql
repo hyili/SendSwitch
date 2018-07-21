@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- 主機: localhost
--- 產生時間： 2018 年 07 月 21 日 15:27
+-- 產生時間： 2018 年 07 月 21 日 17:45
 -- 伺服器版本: 5.6.40
 -- PHP 版本： 7.2.7
 
@@ -29,10 +29,12 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE `mail_status` (
-  `id` int(11) NOT NULL,
-  `uid` int(11) NOT NULL,
-  `corr_id` int(11) NOT NULL,
-  `status_code` int(11) NOT NULL
+  `id` int(11) UNSIGNED NOT NULL,
+  `uid` int(11) UNSIGNED NOT NULL,
+  `corr_id` varchar(100) NOT NULL,
+  `status_code` int(11) NOT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- --------------------------------------------------------
@@ -42,10 +44,10 @@ CREATE TABLE `mail_status` (
 --
 
 CREATE TABLE `server_profile` (
-  `id` int(10) UNSIGNED NOT NULL COMMENT 'auto increment id',
+  `id` int(11) UNSIGNED NOT NULL COMMENT 'auto increment id',
   `sid` varchar(100) NOT NULL COMMENT 'server id',
   `hostname` varchar(100) NOT NULL COMMENT 'server hostname',
-  `port` int(10) UNSIGNED NOT NULL COMMENT 'server port',
+  `port` int(11) UNSIGNED NOT NULL COMMENT 'server port',
   `source` tinyint(1) NOT NULL COMMENT 'check if this server can be a data source server',
   `destination` tinyint(1) NOT NULL COMMENT 'check if this server can be a data destination server',
   `activate` tinyint(1) NOT NULL COMMENT 'check if this server is activated',
@@ -60,9 +62,9 @@ CREATE TABLE `server_profile` (
 --
 
 CREATE TABLE `server_route` (
-  `id` int(10) UNSIGNED NOT NULL COMMENT 'auto increment id',
-  `source_id` int(10) UNSIGNED NOT NULL COMMENT 'source server node id',
-  `destination_id` int(10) UNSIGNED NOT NULL COMMENT 'destination server node id',
+  `id` int(11) UNSIGNED NOT NULL COMMENT 'auto increment id',
+  `source_id` int(11) UNSIGNED NOT NULL COMMENT 'source server node id',
+  `destination_id` int(11) UNSIGNED NOT NULL COMMENT 'destination server node id',
   `created_at` datetime NOT NULL COMMENT 'when the record be created',
   `updated_at` datetime DEFAULT NULL COMMENT 'when the record be updated'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -74,10 +76,10 @@ CREATE TABLE `server_route` (
 --
 
 CREATE TABLE `user_profile` (
-  `id` int(10) UNSIGNED NOT NULL COMMENT 'auto increment id',
+  `id` int(11) UNSIGNED NOT NULL COMMENT 'auto increment id',
   `account` varchar(100) NOT NULL COMMENT 'user account',
   `domain` varchar(100) NOT NULL COMMENT 'email domain',
-  `timeout` int(10) UNSIGNED NOT NULL COMMENT 'timeout in second',
+  `timeout` int(11) UNSIGNED NOT NULL COMMENT 'timeout in second',
   `service_ready` tinyint(1) DEFAULT NULL COMMENT 'check if service is activated',
   `route_ready` tinyint(1) DEFAULT NULL COMMENT 'check if route is activated',
   `route_installed` tinyint(1) DEFAULT NULL COMMENT 'check if Message Queue route is installed',
@@ -97,10 +99,10 @@ CREATE TABLE `user_profile` (
 --
 
 CREATE TABLE `user_route` (
-  `id` int(10) UNSIGNED NOT NULL COMMENT 'auto increment id',
-  `uid` int(10) UNSIGNED NOT NULL COMMENT 'user id',
-  `source_id` int(10) UNSIGNED NOT NULL COMMENT 'source server node id',
-  `destination_id` int(10) UNSIGNED NOT NULL COMMENT 'destination server node id',
+  `id` int(11) UNSIGNED NOT NULL COMMENT 'auto increment id',
+  `uid` int(11) UNSIGNED NOT NULL COMMENT 'user id',
+  `source_id` int(11) UNSIGNED NOT NULL COMMENT 'source server node id',
+  `destination_id` int(11) UNSIGNED NOT NULL COMMENT 'destination server node id',
   `created_at` datetime NOT NULL COMMENT 'when the record be created',
   `updated_at` datetime DEFAULT NULL COMMENT 'when the record be updated'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -108,6 +110,13 @@ CREATE TABLE `user_route` (
 --
 -- 已匯出資料表的索引
 --
+
+--
+-- 資料表索引 `mail_status`
+--
+ALTER TABLE `mail_status`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `uid foreign key` (`uid`);
 
 --
 -- 資料表索引 `server_profile`
@@ -144,32 +153,44 @@ ALTER TABLE `user_route`
 --
 
 --
+-- 使用資料表 AUTO_INCREMENT `mail_status`
+--
+ALTER TABLE `mail_status`
+  MODIFY `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
 -- 使用資料表 AUTO_INCREMENT `server_profile`
 --
 ALTER TABLE `server_profile`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auto increment id';
+  MODIFY `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auto increment id';
 
 --
 -- 使用資料表 AUTO_INCREMENT `server_route`
 --
 ALTER TABLE `server_route`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auto increment id';
+  MODIFY `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auto increment id';
 
 --
 -- 使用資料表 AUTO_INCREMENT `user_profile`
 --
 ALTER TABLE `user_profile`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auto increment id';
+  MODIFY `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auto increment id';
 
 --
 -- 使用資料表 AUTO_INCREMENT `user_route`
 --
 ALTER TABLE `user_route`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auto increment id';
+  MODIFY `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auto increment id';
 
 --
 -- 已匯出資料表的限制(Constraint)
 --
+
+--
+-- 資料表的 Constraints `mail_status`
+--
+ALTER TABLE `mail_status`
+  ADD CONSTRAINT `uid foreign key` FOREIGN KEY (`uid`) REFERENCES `user_profile` (`id`);
 
 --
 -- 資料表的 Constraints `user_route`
