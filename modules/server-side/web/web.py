@@ -40,6 +40,7 @@ def ManagementUI(config):
     registered_users = config.kwargs["registered_users"]
     registered_server_routes = config.kwargs["registered_server_routes"]
     registered_user_routes = config.kwargs["registered_user_routes"]
+    processing_mails = config.kwargs["processing_mails"]
     email_domain = config.kwargs["email_domain"]
     host_domain = config.kwargs["host_domain"]
     MQ_host = config.kwargs["MQ_host"]
@@ -355,12 +356,13 @@ def ManagementUI(config):
         try:
             # Get User's ip
             ip = request.remote_addr
+            mails = processing_mails.getFromUid(current_user.id)
+            corr_ids = [mail.corr_id for mail in mails]
 
-#            processing_emails = current_user.getProcessingEmailList()
-#            for email in processing_emails:
-#                flush.send(email)
+            for corr_id in corr_ids:
+                flush.send(corr_id)
 
-            return "Waiting for implement.", 200
+            return str(corr_ids), 200
         except Exception as e:
             Debug("Something wrong happened during flush_queuing_mail(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500

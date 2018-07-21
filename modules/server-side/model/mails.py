@@ -68,6 +68,22 @@ class Mails():
 
         return mail
 
+    def getFromUid(self, uid):
+        mails = None
+        session = self.sessionmaker()
+        try:
+            mails = session.query(Mail).filter(and_(Mail.uid == uid, Mail.status_code == 0)).all()
+        except sqlalchemy.orm.exc.NoResultFound as e:
+            mails = list()
+        except Exception as e:
+            mails = None
+            self.Debug(e)
+            self.Debug("Something wrong happened during getFromUid(), reason: {0}.".format(e))
+
+        session.close()
+
+        return mails
+
     def updateMail(self, corr_id, status_code):
         if not corr_id or not status_code:
             return False
