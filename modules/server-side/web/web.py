@@ -14,6 +14,7 @@ import smtplib
 import threading
 
 from auth import ldap
+from setup_route import setup_route
 
 # TODO: permission check
 def ManagementUI(config):
@@ -41,6 +42,8 @@ def ManagementUI(config):
     registered_user_routes = config.kwargs["registered_user_routes"]
     email_domain = config.kwargs["email_domain"]
     host_domain = config.kwargs["host_domain"]
+    MQ_host = config.kwargs["MQ_host"]
+    MQ_port = config.kwargs["MQ_port"]
     web_host = config.kwargs["web_host"]
     web_port = config.kwargs["web_port"]
     timeout = config.kwargs["timeout"]
@@ -208,6 +211,16 @@ def ManagementUI(config):
         try:
             # Get User's ip
             ip = request.remote_addr
+            (account, domain) = current_user.get_id().split("@")
+
+            if current_user.route_installed:
+                pass
+            else:
+                setup_route(account, domain, MQ_host, MQ_port)
+                if registered_users.installRoute(current_user.id):
+                    pass
+                else:
+                    return "Failed to install route.", 200
 
             if current_user.serviceStatus():
                 return "Already activated.", 200

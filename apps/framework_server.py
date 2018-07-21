@@ -8,6 +8,7 @@ from aiosmtpd.handlers import Proxy
 
 sys.path.append("../modules/share")
 sys.path.append("../modules/server-side")
+sys.path.append("../modules/MessageQueue")
 from handler import SMTPMQHandler, SMTPProxyHandler
 from controller import ServerController
 from web import web

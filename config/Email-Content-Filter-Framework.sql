@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- 主機: localhost
--- 產生時間： 2018 年 07 月 17 日 10:29
+-- 產生時間： 2018 年 07 月 21 日 15:27
 -- 伺服器版本: 5.6.40
 -- PHP 版本： 7.2.7
 
@@ -25,15 +25,14 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- 資料表結構 `api_info`
+-- 資料表結構 `mail_status`
 --
 
-CREATE TABLE `api_info` (
-  `id` int(10) UNSIGNED NOT NULL COMMENT 'auto increment application id',
-  `uid` int(10) UNSIGNED NOT NULL COMMENT 'user id',
-  `api_secret` varchar(100) NOT NULL COMMENT 'a key for api_key encryption',
-  `created_at` datetime NOT NULL COMMENT 'when the record be created',
-  `expired_at` datetime NOT NULL COMMENT 'when will the key expired'
+CREATE TABLE `mail_status` (
+  `id` int(11) NOT NULL,
+  `uid` int(11) NOT NULL,
+  `corr_id` int(11) NOT NULL,
+  `status_code` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- --------------------------------------------------------
@@ -79,14 +78,16 @@ CREATE TABLE `user_profile` (
   `account` varchar(100) NOT NULL COMMENT 'user account',
   `domain` varchar(100) NOT NULL COMMENT 'email domain',
   `timeout` int(10) UNSIGNED NOT NULL COMMENT 'timeout in second',
-  `service_ready` tinyint(1) DEFAULT NULL COMMENT 'check if service is ready',
-  `route_ready` tinyint(1) NOT NULL COMMENT 'check if route is installed',
+  `service_ready` tinyint(1) DEFAULT NULL COMMENT 'check if service is activated',
+  `route_ready` tinyint(1) DEFAULT NULL COMMENT 'check if route is activated',
+  `route_installed` tinyint(1) DEFAULT NULL COMMENT 'check if Message Queue route is installed',
   `is_authenticated` tinyint(1) NOT NULL COMMENT 'flask',
   `is_active` tinyint(1) NOT NULL COMMENT 'flask',
   `is_anonymous` tinyint(1) NOT NULL COMMENT 'flask',
   `created_at` datetime NOT NULL COMMENT 'when the record be created',
   `service_ready_at` datetime DEFAULT NULL COMMENT 'when the last time service ready be changed',
-  `route_ready_at` datetime DEFAULT NULL COMMENT 'when the rabbitmq route be installed'
+  `route_ready_at` datetime DEFAULT NULL COMMENT 'when the rabbitmq route be installed',
+  `route_installed_at` datetime DEFAULT NULL COMMENT 'when the route be installed'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- --------------------------------------------------------
@@ -107,13 +108,6 @@ CREATE TABLE `user_route` (
 --
 -- 已匯出資料表的索引
 --
-
---
--- 資料表索引 `api_info`
---
-ALTER TABLE `api_info`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `uid` (`uid`);
 
 --
 -- 資料表索引 `server_profile`
@@ -150,12 +144,6 @@ ALTER TABLE `user_route`
 --
 
 --
--- 使用資料表 AUTO_INCREMENT `api_info`
---
-ALTER TABLE `api_info`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auto increment application id';
-
---
 -- 使用資料表 AUTO_INCREMENT `server_profile`
 --
 ALTER TABLE `server_profile`
@@ -182,12 +170,6 @@ ALTER TABLE `user_route`
 --
 -- 已匯出資料表的限制(Constraint)
 --
-
---
--- 資料表的 Constraints `api_info`
---
-ALTER TABLE `api_info`
-  ADD CONSTRAINT `app_info uid foreign key` FOREIGN KEY (`uid`) REFERENCES `user_profile` (`id`);
 
 --
 -- 資料表的 Constraints `user_route`

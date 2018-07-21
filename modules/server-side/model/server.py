@@ -27,3 +27,4 @@ class Server(Base):
         self.destination = destination
         self.activate = activate
         self.created_at = datetime.datetime.utcnow()
+        self.activated_at = datetime.datetime.utcnow() if activate else None

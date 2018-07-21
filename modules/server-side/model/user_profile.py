@@ -33,7 +33,7 @@ class Users():
         if user:
             return None
 
-        user = User(email, timeout, service_ready=False, route_ready=True)
+        user = User(email, timeout, service_ready=False, route_ready=False, route_installed=False)
         session = self.sessionmaker()
         try:
             session.add(user)
@@ -47,6 +47,26 @@ class Users():
         session.close()
 
         return user
+
+    def installRoute(self, id):
+        if not id:
+            return False
+
+        ret = True
+        session = self.sessionmaker()
+        try:
+            session.query(User).filter_by(id=id).update(
+                {"route_installed": True, "route_installed_at": datetime.datetime.utcnow()}
+            )
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            ret = False
+            self.Debug("Something wrong happened during installRoute(), reason: {0}.".format(e))
+
+        session.close()
+
+        return ret
 
     def activateService(self, id):
         if not id:
