@@ -64,21 +64,30 @@
     <div class="container">
         <div class="container-fluid">
             <h3>Testing</h3>
-            <div id="board" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"> [*] GOGOGO~</div>
+            <ul>
+                <li>Just a testing.</li>
+                <div id="board" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"> [*] GOGOGO~</div>
+            </ul>
 
             <h3>Email</h3>
-            <div id="email-json-viewer" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"></div>
+            <ul>
+                <li>See your incoming email content here.</li>
+                <div id="email-json-viewer" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"></div>
+            </ul>
 
             <h3>Echo Test & Info</h3>
-            <form id="emit" method="POST" action="#">
-                <div class="form-group">
-                    <input type="text" class="form-control" name="emit_data" id="emit_data" placeholder="Message">
-                </div>
-                <div class="form-group">
-                    <input type="submit" class="btn btn-primary" value="Echo">
-                </div>
-            </form>
-            <div id="info" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"> [*] GOGOGO~</div>
+            <ul>
+                <li>See your email's log from client side.</li>
+                <form id="emit" method="POST" action="#">
+                    <div class="form-group">
+                        <input type="text" class="form-control" name="emit_data" id="emit_data" placeholder="Message">
+                    </div>
+                    <div class="form-group">
+                        <input type="submit" class="btn btn-primary" value="Echo">
+                    </div>
+                </form>
+                <div id="info" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"> [*] GOGOGO~</div>
+            </ul>
         </div>
     </div>
 </body>

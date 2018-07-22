@@ -59,24 +59,36 @@ def ManagementUI(config):
     # https://github.com/miguelgrinberg/Flask-SocketIO/blob/master/example/app.py
     def background_thread():
         while True:
-            # email statistic
+            # TODO: email statistic
             data = 0
 
             # logging
-            log = list()
+            log = dict()
 
             # try to fetch all the output message
             while True:
-                msg = output.recv()
-                if msg is not None:
-                    log.append(msg)
+                pack = output.recv()
+                if pack:
+                    msg, bundle = pack[0], pack[1]
                 else:
                     break
 
-            socketio.emit("server_statistic", {
-                "data": data,
-                "log": log
-            }, namespace="/monitor")
+                if msg is not None and bundle is not None:
+                    if bundle.rcpt not in log:
+                        log[bundle.rcpt] = list()
+
+                    log[bundle.rcpt].append(msg)
+                elif msg is not None:
+                    for key in log:
+                        log[key].append(msg)
+                else:
+                    break
+
+            for key in log:
+                socketio.emit("server_statistic_{0}".format(key), {
+                    "data": data,
+                    "log": log[key]
+                }, namespace="/monitor")
 
             socketio.sleep(1)
 
