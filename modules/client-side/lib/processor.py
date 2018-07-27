@@ -18,10 +18,10 @@ class Processor():
         if not self.silent_mode:
             print(" [*] {0}".format(msg))
 
-    def set_timeout(self, timeout):
+    def setTimeout(self, timeout):
         self.timeout = timeout
 
-    def set_description(self, description):
+    def setDescription(self, description):
         self.description = description
 
     def activate(self):
@@ -30,7 +30,7 @@ class Processor():
     def deactivate(self):
         self.enable = False
 
-    def is_activate(self):
+    def isActivate(self):
         return self.enable
 
     # customized function here
@@ -40,7 +40,7 @@ class Processor():
 
     def run(self, msg):
         # check if the module is enabled
-        if self.is_activate():
+        if self.isActivate():
             self.Debug("{0} is active, Start to process.".format(self.__class__.__name__))
         else:
             self.Debug("{0} is inactive, Skipped.".format(self.__class__.__name__))

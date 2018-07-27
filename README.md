@@ -14,28 +14,28 @@ It requires at least Python 3.5 to run.
 
 ## Features
 - [x] Performance is Okay.
-	- [x] Based on aiosmtpd with asynchronous smtpd.
-	- [x] Based on smtplib and asyncio run_in_executor() to handle non-blocking send_mail function.
+    - [x] Based on aiosmtpd with asynchronous smtpd.
+    - [x] Based on smtplib and asyncio run_in_executor() to handle non-blocking send_mail function.
 - [x] Simple Web GUI interface.
 - [x] Simple logging mechanism for debugging.
 - [x] Multiple sample processors for `Content-Filter-Clients` to use.
-	- [x] Sample PASS processor
-	- [x] Webhook processor
-	- [x] Blacklist Whitelist processor
-	- [x] Anti-Spam processor with SpamAssassin
-	- [x] Anti-Virus processor with ClamAV
+    - [x] Sample PASS processor
+    - [x] Webhook processor
+    - [x] Blacklist Whitelist processor
+    - [x] Anti-Spam processor with SpamAssassin
+    - [x] Anti-Virus processor with ClamAV
 - [x] SMTP API support
-	- [x] Using JWT for user verification
+    - [x] Using JWT for user verification
 - [x] Response actions support
-	- [x] PENDING
-	- [x] PASS
-	- [x] DENY
-	- [x] FORWARD
-	- [ ] QUARATINE
+    - [x] PENDING
+    - [x] PASS
+    - [x] DENY
+    - [x] FORWARD
+    - [ ] QUARATINE
 - [x] Response tags support
-	- [x] TAG_NOTHING
-	- [x] TAG_SPAM
-	- [x] TAG_VIRUS
+    - [x] TAG_NOTHING
+    - [x] TAG_SPAM
+    - [x] TAG_VIRUS
 
 ## Related Projects
 - aiosmtpd: https://github.com/aio-libs/aiosmtpd
@@ -85,53 +85,53 @@ Install Postfix on your system, and modify the following
 - in master.cf
 ```
 smtp      inet  n       -       n       -       -       smtpd
-	-o content_filter=scan:127.0.0.1:8025
+    -o content_filter=scan:127.0.0.1:8025
 
-scan	unix	-		-		n		-		10		smtp
-	-o smtp_send_xforward_command=yes
-	-o disable_mime_output_conversion=yes
-	-o smtp_generic_maps=
+scan    unix    -        -        n        -        10        smtp
+    -o smtp_send_xforward_command=yes
+    -o disable_mime_output_conversion=yes
+    -o smtp_generic_maps=
 
-localhost:10025	inet	n		-		n		-		10		smtpd
-	-o smtpd_tls_security_level=
-	-o smtpd_sasl_auth_enable=no
-	-o content_filter=
-	-o receive_override_options=no_unknown_recipient_checks,no_header_body_checks,no_milters
-	-o smtpd_helo_restrictions=
-	-o smtpd_client_restrictions=
-	-o smtpd_sender_restrictions=
-	-o smtpd_relay_restrictions=
-	-o smtpd_recipient_restrictions=permit_mynetworks,reject
-	-o mynetworks=127.0.0.0/8
-	-o smtpd_authorized_xforward_hosts=127.0.0.0/8
+localhost:10025    inet    n        -        n        -        10        smtpd
+    -o smtpd_tls_security_level=
+    -o smtpd_sasl_auth_enable=no
+    -o content_filter=
+    -o receive_override_options=no_unknown_recipient_checks,no_header_body_checks,no_milters
+    -o smtpd_helo_restrictions=
+    -o smtpd_client_restrictions=
+    -o smtpd_sender_restrictions=
+    -o smtpd_relay_restrictions=
+    -o smtpd_recipient_restrictions=permit_mynetworks,reject
+    -o mynetworks=127.0.0.0/8
+    -o smtpd_authorized_xforward_hosts=127.0.0.0/8
 ```
 #### apps/framework_server.py
 - Module for handling SMTP/SMTPD/MessageQueue message interaction
 - in config/server_config.py
-	- copy config/example/example_server_config.py to config/server_config.py modify it to fit your environment
+    - copy config/example/example_server_config.py to config/server_config.py modify it to fit your environment
 - sample usage
 ```
 ./framework_server.py
 ```
 - Web Management Page
-	- http://localhost:60666/
-	- http://localhost:60666/manage
-	- http://localhost:60666/monitor
+    - http://localhost:60666/
+    - http://localhost:60666/manage
+    - http://localhost:60666/monitor
 - SMTP API (UTF8)
-	- http://localhost:60666/api_key
-	- http://localhost:60666/smtp
+    - http://localhost:60666/api_key
+    - http://localhost:60666/smtp
 ```
 POST-Request
 Content-Type: application/json
 {
-	"data": {
-		"api_key": "API_KEY",
-		"mail_from": "user1@domain",
-	    "mail_to": ["user2@domain", "user3@domain"],
-		"cc_to": ["user4@domain", "user5@domain"],
-	    "bcc_to": ["user6@domain", "user7@domain"],
-		"subject": "SUBJECT",
-	    "content": "CONTENT"
+    "data": {
+        "api_key": "API_KEY",
+        "mail_from": "user1@domain",
+        "mail_to": ["user2@domain", "user3@domain"],
+        "cc_to": ["user4@domain", "user5@domain"],
+        "bcc_to": ["user6@domain", "user7@domain"],
+        "subject": "SUBJECT",
+        "content": "CONTENT"
     }
 }
 ```
@@ -151,15 +151,15 @@ git submodule update --init
 #### apps/framework_client.py
 - Module for handling user's incoming email get from MessageQueue
 - in config/client_config.py
-	- copy config/example/example_client_config.py to config/client_config.py modify it to fit your environment and add some customized processors
+    - copy config/example/example_client_config.py to config/client_config.py modify it to fit your environment and add some customized processors
 - sample usage
 ```
 ./framework_client.py
 ```
 - Web Management Page
-	- http://localhost:61666/
-	- http://localhost:61666/manage
-	- http://localhost:61666/monitor
+    - http://localhost:61666/
+    - http://localhost:61666/manage
+    - http://localhost:61666/monitor
 #### config/processors.py
 - Module of processors for framework_client.py to use
 - You can develop your own processors here, and set it in config/client_config.py.

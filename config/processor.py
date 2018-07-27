@@ -114,7 +114,7 @@ class BlacklistWhitelistProcessor(Processor):
 
 class SpamAssassinProcessor(Processor):
     def extract_result(self, result):
-        ED_processor = EmailDecodeProcessor(description="just using for decode spamassassin's result.")
+        ED_processor = EmailDecodeProcessor(description="just used for decoding spamassassin's result.")
         email = ED_processor.parse_msg_from_bytes(result)
         header = ED_processor.extract_header(email)
 
