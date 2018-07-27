@@ -76,7 +76,6 @@ class Sender():
             self.channel.basic_publish(exchange=self.exchange_id,
                 routing_key=routing_key,
                 properties=pika.BasicProperties(
-                    reply_to=self.response_queue_id,
                     correlation_id=corr_id,
                     timestamp=int(timestamp),
                     expiration=str(expire)

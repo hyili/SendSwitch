@@ -58,7 +58,7 @@ class Receiver():
         )
 
     def consume_response(self, channel, method, properties, body):
-        self.result.update({properties.correlation_id: body.decode("utf-8")})
+        self.result.update({properties.correlation_id: (body.decode("utf-8"), method.routing_key)})
 
     # Non-Blocking
     def check_result(self):
@@ -94,6 +94,3 @@ class Receiver():
 
     def clear(self):
         self.result.clear()
-
-    def remove(self, corr_id):
-        return self.get_result(corr_id)

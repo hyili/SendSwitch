@@ -605,28 +605,36 @@ class SMTPMQHandler(SMTPProxyHandler):
                 for corr_id in waiting_list:
                     # Fetching the emails
                     if corr_id in self.SMTP_session_bundles.keys():
-                        _result = self.handler.get_result(corr_id)
+                        bundle = self.SMTP_session_bundles[corr_id]
+
+                        # Check if return messages' publisher correct
+                        _result, routing_key = self.handler.get_result(corr_id)
+                        if routing_key != "mail.{0}".format(bundle.rcpt):
+                            self.Debug("Catch an unusual message with routing_key {0}.".format(routing_key), header=corr_id)
+                            continue
+
                         result = json.loads(_result)
+                        self.Debug("Received from MessageQueue.", header=corr_id, bundle=bundle)
+
+                        # TODO: MySQL query flood issue
+                        user = self.registered_users.get(bundle.rcpt)
+
+                        # Sol.1 Apply the action that client told us
+                        #await self.apply_action(bundle, result, user)
+
+                        # Sol.2 Prepare subtask for loop
+                        #subtasks.append(self.apply_action(bundle, result, user))
+
+                        # Sol.3
+                        # TODO: maybe grouping by each users?
+                        # https://docs.python.org/3/library/asyncio-dev.html#handle-blocking-functions-correctly
+                        task = loop.run_in_executor(None, self.apply_action, bundle, result, user)
+                        self.subtasks.append(task)
                     else:
-                        self.handler.remove(corr_id)
+                        # Remove this spam message, and return routing_key for logging
+                        _result, routing_key = self.handler.get_result(corr_id)
+                        self.Debug("Catch an spam message with routing_key {0}.".format(routing_key), header=corr_id)
                         continue
-
-                    bundle = self.SMTP_session_bundles[corr_id]
-                    user = self.registered_users.get(bundle.rcpt)
-
-                    self.Debug("Received from MessageQueue.", header=corr_id, bundle=bundle)
-
-                    # Sol.1 Apply the action that client told us
-                    #await self.apply_action(bundle, result, user)
-
-                    # Sol.2 Prepare subtask for loop
-                    #subtasks.append(self.apply_action(bundle, result, user))
-
-                    # Sol.3
-                    # TODO: maybe grouping by each users?
-                    # https://docs.python.org/3/library/asyncio-dev.html#handle-blocking-functions-correctly
-                    task = loop.run_in_executor(None, self.apply_action, bundle, result, user)
-                    self.subtasks.append(task)
 
                 # Execute the subtask
                 # Though it can asynchoronously execute the task

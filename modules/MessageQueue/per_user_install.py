@@ -8,10 +8,14 @@ import json
 import requests
 
 class per_user_install():
-    def __init__(self, host="localhost", port=5672, web_port=15672, silent_mode=False, vhost="/", admin_user="guest", admin_password="guest"):
+    def __init__(self, username="guest", email_domain="localhost", host="localhost", port=5672, web_port=15672, silent_mode=False,
+        vhost="/", admin_user="guest", admin_password="guest"):
+
         # rabbitmq host
         self.host = host
         self.port = port
+        self.username = username
+        self.email_domain = email_domain
         self.web_port = web_port
         self.vhost = vhost
         self.admin_user = admin_user
@@ -48,11 +52,21 @@ class per_user_install():
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, port=self.port, virtual_host=self.vhost, credentials=self.credentials))
         self.channel = self.connection.channel()
 
-        # DLX
+        # DLX & AE
         self.channel.exchange_declare(exchange="return",
+            exchange_type="topic",
+            passive=False,
+            durable=True
+        )
+
+        self.channel.exchange_declare(exchange="mail",
             exchange_type="direct",
             passive=False,
-            durable=True)
+            durable=True,
+            arguments={
+                "alternate-exchange": "return"
+            }
+        )
 
         self.channel.queue_declare(queue="return",
             passive=False,
@@ -71,7 +85,12 @@ class per_user_install():
 
         self.channel.queue_bind(exchange="return",
             queue="return",
-            routing_key="return"
+            routing_key="#"
+        )
+
+        self.channel.queue_bind(exchange="mail",
+            queue="mail",
+            routing_key="mail.{0}@{1}".format(self.username, self.email_domain)
         )
 
         time.sleep(5)
@@ -90,9 +109,10 @@ class per_user_install():
                     "add-forward-headers": False,
                     "delete-after": "never",
                     "src-uri": "amqp://localhost",
-                    "src-queue": self.vhost,
+                    "src-queue": "{0}-mail".format(self.vhost),
                     "dest-uri": "amqp://{0}:{1}@localhost/{2}".format(self.admin_user, self.admin_password, self.vhost),
-                    "dest-queue": "mail"
+                    "dest-exchange": "mail",
+                    "dest-exchange-key": "mail.{0}@{1}".format(self.username, self.email_domain)
                 }
             }, auth=requests.auth.HTTPBasicAuth(admin_user, admin_password))
             self.Debug(r)
@@ -114,7 +134,7 @@ class per_user_install():
                     "src-uri": "amqp://{0}:{1}@localhost/{2}".format(self.admin_user, self.admin_password, self.vhost),
                     "src-queue": "return",
                     "dest-uri": "amqp://localhost",
-                    "dest-queue": "return"
+                    "dest-exchange": "{0}-return".format(self.vhost)
                 }
             }, auth=requests.auth.HTTPBasicAuth(admin_user, admin_password))
             self.Debug(r)

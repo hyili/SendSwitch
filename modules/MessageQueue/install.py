@@ -21,7 +21,7 @@ class install():
         self.channel = self.connection.channel()
 
         # declare exchange
-        self.channel.exchange_declare(exchange="random",
+        self.channel.exchange_declare(exchange="mail",
             exchange_type="direct",
             passive=False,
             durable=True,
@@ -30,7 +30,8 @@ class install():
             }
         )
 
-        self.channel.exchange_declare(exchange="mail",
+        # declare return exchange if there is no current queue exists
+        self.channel.exchange_declare(exchange="{0}-return".format(self.username),
             exchange_type="direct",
             passive=False,
             durable=True,
@@ -41,12 +42,9 @@ class install():
 
         # DLX
         self.channel.exchange_declare(exchange="return",
-            exchange_type="direct",
+            exchange_type="topic",
             passive=False,
-            durable=True,
-            arguments={
-                "alternate-exchange": "dropped"
-            }
+            durable=True
         )
 
         # AE
@@ -56,8 +54,8 @@ class install():
             durable=True
         )
 
-        # declare queue if there is no current queue exists
-        self.channel.queue_declare(queue=self.username,
+        # declare send queue if there is no current queue exists
+        self.channel.queue_declare(queue="{0}-mail".format(self.username),
             passive=False,
             durable=True,
             arguments={
@@ -71,19 +69,30 @@ class install():
             durable=True
         )
 
-        # set queue bindings (can binds many keys to one queue)
+        self.channel.queue_declare(queue="dropped",
+            passive=False,
+            durable=True
+        )
+
+        # set send queue bindings (can binds many keys to one queue)
         self.channel.queue_bind(exchange="mail",
-            queue=self.username,
+            queue="{0}-mail".format(self.username),
+            routing_key="mail.{0}@{1}".format(self.username, self.email_domain)
+        )
+
+        # set return queue bindings (can binds many keys to one queue)
+        self.channel.queue_bind(exchange="{0}-return".format(self.username),
+            queue="return",
             routing_key="mail.{0}@{1}".format(self.username, self.email_domain)
         )
 
         self.channel.queue_bind(exchange="return",
             queue="return",
-            routing_key="return"
+            routing_key="#"
         )
 
         self.channel.queue_bind(exchange="dropped",
-            queue="return",
+            queue="dropped",
             routing_key="#"
         )
 

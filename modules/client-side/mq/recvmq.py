@@ -108,8 +108,8 @@ class Receiver():
                 result=current_msg.getResult(), forward=current_msg.getForward())
 
             # send response backto default exchanger
-            channel.basic_publish(exchange='',
-                routing_key=properties.reply_to,
+            channel.basic_publish(exchange="return",
+                routing_key=method.routing_key,
                 properties=pika.BasicProperties(
                     correlation_id=properties.correlation_id,
                     timestamp=int(timestamp),
@@ -119,7 +119,7 @@ class Receiver():
             )
 
             # Message Controller
-            self.Debug("Sent, data: {0} to {1}.".format(response.get(), properties.reply_to))
+            self.Debug("Sent, data: {0} to return.".format(response.get()))
 
             channel.basic_ack(delivery_tag=method.delivery_tag)
         except Exception as e:

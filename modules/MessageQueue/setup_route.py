@@ -7,7 +7,7 @@ from per_user_install import per_user_install
 
 def setup_route(username, domain, rabbitmq_host, rabbitmq_port):
     install(host=rabbitmq_host, port=rabbitmq_port, username=username, email_domain=domain)
-    per_user_install(host=rabbitmq_host, port=rabbitmq_port, vhost=username)
+    per_user_install(host=rabbitmq_host, port=rabbitmq_port, vhost=username, username=username, email_domain=domain)
 
 if __name__ == "__main__":
     try:
