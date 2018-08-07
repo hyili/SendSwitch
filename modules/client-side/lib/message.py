@@ -19,20 +19,23 @@ class Message():
     def setDecodedMsg(self, decoded_msg):
         self.decoded_msg = decoded_msg
 
+    # get email message from bytes
     def getDecodedMsg(self):
         return self.decoded_msg
 
+    # get base64 encoded message
     def getOriginMsg(self):
         return self.origin_msg
 
     def setMsg(self, msg):
         self.current_msg = msg
 
+    # get structured message
     def getMsg(self):
         return self.current_msg
 
     def setResult(self, result):
-        self.current_result = self.current_result | result
+        self.current_result = result
 
     def getResult(self):
         return self.current_result

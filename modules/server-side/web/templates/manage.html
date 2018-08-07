@@ -88,7 +88,7 @@
     <script>
         function get_api_key_jQuery() {
             $.get(
-                "api_key",
+                "api/api_key",
                 {},
                 function(data) {
                     $("#api_key").html(data);
@@ -98,7 +98,7 @@
 
         function activate_service_jQuery() {
             $.post(
-                "service/activate",
+                "api/service/activate",
                 {},
                 function(data) {
                     alert("Response: " + data);
@@ -109,7 +109,7 @@
 
         function deactivate_service_jQuery() {
             $.post(
-                "service/deactivate",
+                "api/service/deactivate",
                 {},
                 function(data) {
                     alert("Response: " + data);
@@ -120,7 +120,7 @@
 
         function activate_route_jQuery() {
             $.post(
-                "route/activate",
+                "api/route/activate",
                 {},
                 function(data) {
                     alert("Response: " + data);
@@ -131,7 +131,7 @@
 
         function deactivate_route_jQuery() {
             $.post(
-                "route/deactivate",
+                "api/route/deactivate",
                 {},
                 function(data) {
                     alert("Response: " + data);
@@ -141,8 +141,8 @@
         }
 
         function show_registered_users_jQuery() {
-            $.post(
-                "show/registered_users",
+            $.get(
+                "api/show/registered_users",
                 {},
                 function(data) {
                     alert("Response: " + data);
@@ -151,8 +151,8 @@
         }
 
         function show_route_jQuery() {
-            $.post(
-                "show/route",
+            $.get(
+                "api/show/route",
                 {},
                 function(data) {
                     alert("Response: " + data);
@@ -162,7 +162,7 @@
 
         function connect_jQuery(local_sid, remote_sid) {
             $.post(
-                "route",
+                "api/route",
                 { "local_sid": local_sid, "remote_sid": remote_sid },
                 function(data) {
                     alert("Response: " + data);
@@ -173,7 +173,7 @@
 
         function flush_jQuery() {
             $.post(
-                "flush",
+                "api/flush",
                 {},
                 function(data) {
                     alert("Response: " + data);
@@ -183,7 +183,7 @@
 
         function POST_to_smtp_api() {
             $.ajax({
-                url: "smtp",
+                url: "api/smtp",
                 type: "POST",
                 data: $("textarea#smtp_api_demo").val(),
                 contentType: "application/json; charset=utf-8",
@@ -274,16 +274,19 @@
                 {% endif %}{% endfor %}
                 {% endfor %}
             </ul>
-            <h3>SMTP API Key</h3>
+            <h3>API Key</h3>
             <ul>
-                <li>Get your SMTP API Key. The key will expired in 1 day.</li>
+                <li>Get your API Key. The key will expired in 1 day.</li>
                 <textarea readonly id="api_key" class="w-100 p-3" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;"></textarea>
                 <button onclick="get_api_key_jQuery()" class="btn btn-outline-dark">Click me.</button>
+                <li>How to use? Append "?api_key={api_key_you_get}" after url to any of our api.</li>
+            </ul>
+            <h3>SMTP API</h3>
+            <ul>
                 <li>How to use? Try POST sample below.</li>
                 <textarea id="smtp_api_demo" rows="15" class="w-100 p-3 h-15" style="background-color:#eee;font-family:Courier New;word-break: break-all;white-space: pre-wrap;">
 {
     "data": {
-        "api_key": "API_KEY",
         "mail_from": "{{ account }}@{{ domain }}",
         "mail_to": ["{{ account }}@{{ domain }}"],
         "cc_to": [],
@@ -304,7 +307,7 @@
             </ul>
             <h3>Logout</h3>
             <ul>
-                <form action="{{ url_for('logout') }}" method="POST">
+                <form action="{{ url_for('logout') }}" method="GET">
                     <button type="submit" class="btn btn-outline-warning">Logout</button>
                 </form>
             </ul>

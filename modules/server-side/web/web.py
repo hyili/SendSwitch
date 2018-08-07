@@ -5,6 +5,7 @@ from flask import request
 from flask import Flask, url_for, request, render_template, flash, redirect
 from flask_socketio import SocketIO, emit
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_cors import CORS
 
 import os
 import jwt
@@ -22,13 +23,15 @@ def ManagementUI(config):
     app.config["SECRET_KEY"] = config.kwargs["web_secret_key"]
     framework_name = config.kwargs["framework_name"]
     socketio = SocketIO(app)
+    cors = CORS(app, resource={r"/api/*": {"origins": "*"}})
 
     # jwt variable
     HASH_algo = "HS256"
 
     # LoginManager
     login_manager = LoginManager()
-    login_manager.login_view = "/"
+    # comment out this to provide status_code notification
+    #login_manager.login_view = "/"
     login_manager.login_message = "Unauthorized User"
     login_manager.login_message_category = "info"
     login_manager.session_protection = "strong"
@@ -98,23 +101,50 @@ def ManagementUI(config):
     # Flask-Login load user from user
     @login_manager.user_loader
     def load_user(email):
-        # Create user if nothing found
-        user = registered_users.get(email)
-        if not user:
-            user = registered_users.add(email=email, timeout=timeout)
+        try:
+            # Get User's ip
+            ip = request.remote_addr
+
+            # Create user if nothing found
+            user = registered_users.get(email)
+            if not user:
+                user = registered_users.add(email=email, timeout=timeout)
+        except Exception as e:
+            return None
 
         return user
 
     # Flask-Login load user from request coming from flask app
     @login_manager.request_loader
     def load_user_from_request(request):
-        # url args
-        email = request.args.get("email")
+        try:
+            # Get User's ip
+            ip = request.remote_addr
 
-        # Create user if nothing found
-        user = registered_users.get(email)
-        if not user:
-            user = registered_users.add(email=email, timeout=timeout)
+            # get from args
+            api_key = request.args.get("api_key")
+            if not api_key:
+                # get from json body
+                data = request.json
+                api_key = data["api_key"]
+
+            # decode from api_key
+            payload = jwt.decode(api_key, app.config["SECRET_KEY"], algorithms=[HASH_algo])
+
+            # Check user data
+            user = registered_users.get(payload["data"]["email"])
+            if user.id != payload["data"]["uid"]:
+                raise Exception()
+
+            # Check expiration
+            current = datetime.datetime.utcnow()
+            expire = datetime.datetime.fromtimestamp(payload["exp"])
+            if current > expire:
+                raise Exception()
+        except Exception as e:
+            return None
+
+        Debug("Login as {0} from api_key. remote_addr: {1}".format(user.account, ip))
 
         return user
 
@@ -155,6 +185,8 @@ def ManagementUI(config):
                     else:
                         login_user(user)
 
+                    Debug("Login as {0} from account/password. remote_addr: {1}".format(user.account, ip))
+
                     next = request.args.get("next")
                     return redirect(next or url_for("manage"))
                 else:
@@ -168,7 +200,7 @@ def ManagementUI(config):
             return error_page("Error", "Something went wrong."), 500
 
     # Flask-Login handle logout user action page
-    @app.route("/logout", methods=["Get", "Post"])
+    @app.route("/logout", methods=["Get"])
     def logout():
         try:
             # Get User's ip
@@ -217,8 +249,7 @@ def ManagementUI(config):
             Debug("Something wrong happened during manage(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
-    # TODO: install to rabbitmq?
-    @app.route("/service/activate", methods=["Post"])
+    @app.route("/api/service/activate", methods=["Post"])
     @login_required
     def activate_service():
         try:
@@ -247,7 +278,7 @@ def ManagementUI(config):
             return error_page("Error", "Something went wrong."), 500
 
     # TODO: deinstall from rabbitmq?
-    @app.route("/service/deactivate", methods=["Post"])
+    @app.route("/api/service/deactivate", methods=["Post"])
     @login_required
     def deactivate_service():
         try:
@@ -265,7 +296,7 @@ def ManagementUI(config):
             Debug("Something wrong happened during deactivate_service(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
-    @app.route("/route/activate", methods=["Post"])
+    @app.route("/api/route/activate", methods=["Post"])
     @login_required
     def activate_route():
         try:
@@ -283,7 +314,7 @@ def ManagementUI(config):
             Debug("Something wrong happened during activate_route(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
-    @app.route("/route/deactivate", methods=["Post"])
+    @app.route("/api/route/deactivate", methods=["Post"])
     @login_required
     def deactivate_route():
         try:
@@ -301,7 +332,7 @@ def ManagementUI(config):
             Debug("Something wrong happened during deactivate_route(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
-    @app.route("/route", methods=["Post"])
+    @app.route("/api/route", methods=["Post"])
     @login_required
     def route():
         try:
@@ -328,7 +359,7 @@ def ManagementUI(config):
             Debug("Something wrong happened during route(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
-    @app.route("/show/registered_users", methods=["Post"])
+    @app.route("/api/show/registered_users", methods=["Get"])
     @login_required
     def show_registered_users():
         try:
@@ -343,7 +374,7 @@ def ManagementUI(config):
             Debug("Something wrong happened during show_registered_users(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
-    @app.route("/show/route", methods=["Post"])
+    @app.route("/api/show/route", methods=["Get"])
     @login_required
     def show_route():
         try:
@@ -361,8 +392,7 @@ def ManagementUI(config):
             Debug("Something wrong happened during show_route(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
-    # TODO
-    @app.route("/flush", methods=["Post"])
+    @app.route("/api/flush", methods=["Post"])
     @login_required
     def flush_queuing_mail():
         try:
@@ -414,35 +444,8 @@ def ManagementUI(config):
     def connected_msg(msg):
         emit("server_response", {"data": msg["data"]}, namespace="/monitor")
 
-    # SMTP API
-    @app.route("/api_key", methods=["Get"])
+    @app.route("/api/smtp", methods=["Post"])
     @login_required
-    def api_key():
-        try:
-            # Get User's ip
-            ip = request.remote_addr
-
-            current_time = datetime.datetime.utcnow()
-            uid = current_user.id
-            email = "{0}@{1}".format(current_user.account, current_user.domain)
-
-            payload = {
-                "iss": framework_name,
-                "iat": current_time,
-                "exp": current_time+datetime.timedelta(seconds=JWT_expire_interval),
-                "data": {
-                    "uid": uid,
-                    "email": email,
-                }
-            }
-            api_key = jwt.encode(payload, app.config["SECRET_KEY"], algorithm=HASH_algo)
-
-            return api_key, 200
-        except Exception as e:
-            Debug("Something wrong happened during api_key(), remote_addr: {0}, reason: {1}.".format(ip, e))
-            return error_page("Error", "Something went wrong."), 500
-
-    @app.route("/smtp", methods=["Post"])
     def smtp():
         try:
             # Get User's ip
@@ -465,24 +468,6 @@ def ManagementUI(config):
             if not content:
                 return "Please POST your data in json type.", 400
 
-            try:
-                api_key = content["data"]["api_key"]
-                payload = jwt.decode(api_key, app.config["SECRET_KEY"], algorithms=[HASH_algo])
-
-                # Check user data
-                user = registered_users.get(payload["data"]["email"])
-                if user.id != payload["data"]["uid"]:
-                    return "Invalid api_key.", 403
-
-                # Check expiration
-                current = datetime.datetime.utcnow()
-                expire = datetime.datetime.fromtimestamp(payload["exp"])
-                if current > expire:
-                    return "Expired api_key.", 403
-            except Exception as e:
-                Debug("Something wrong happened during smtp(), remote_addr: {0}, reason: {1}.".format(ip, e))
-                return "Invalid api_key.", 403
-
             # Check if the incoming request is valid
             mail_to_upper_bound = 10
             mail_to_lower_bound = 1
@@ -491,7 +476,7 @@ def ManagementUI(config):
             try:
                 # mail_from's address must be user's email address
                 mail_from = content["data"]["mail_from"]
-                if mail_from != payload["data"]["email"]:
+                if mail_from != "{0}@{1}".format(current_user.account, current_user.domain):
                     return "Invalid mail_from address.", 403
 
                 mail_to = content["data"]["mail_to"]
@@ -511,7 +496,7 @@ def ManagementUI(config):
 
                 subject = content["data"]["subject"]
                 content = content["data"]["content"]
-            except:
+            except Exception as e:
                 Debug("Something wrong happened during smtp(), remote_addr: {0}, reason: {1}.".format(ip, e))
                 return "Some required keys are missing, please recheck.", 400
 
@@ -540,6 +525,81 @@ def ManagementUI(config):
         except Exception as e:
             Debug("Something wrong happened during smtp(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
+
+    # SMTP API
+    @app.route("/api/api_key", methods=["Get"])
+    @login_required
+    def api_key_get():
+        try:
+            # Get User's ip
+            ip = request.remote_addr
+
+            current_time = datetime.datetime.utcnow()
+            uid = current_user.id
+            email = "{0}@{1}".format(current_user.account, current_user.domain)
+
+            payload = {
+                "iss": framework_name,
+                "iat": current_time,
+                "exp": current_time+datetime.timedelta(seconds=JWT_expire_interval),
+                "data": {
+                    "uid": uid,
+                    "email": email,
+                }
+            }
+            api_key = jwt.encode(payload, app.config["SECRET_KEY"], algorithm=HASH_algo)
+
+            return api_key, 200
+        except Exception as e:
+            Debug("Something wrong happened during api_key_get(), remote_addr: {0}, reason: {1}.".format(ip, e))
+            return error_page("Error", "Something went wrong."), 500
+
+    # api login
+    """
+    @app.route("/api/api_key", methods=["Post"])
+    def api_key_post():
+        try:
+            # Get User's ip
+            ip = request.remote_addr
+
+            # fetch form variable
+            data = request.json
+            if not data:
+                return "Please POST your data in json type.", 400
+
+            try:
+                email = data["email"]
+                passwd = data["passwd"]
+                remember = data["remember"]
+                (account, domain) = email.split("@")
+            except Exception as e:
+                Debug("Something wrong happened during api_key_post(), remote_addr: {0}, reason: {1}.".format(ip, e))
+                return "Some required keys are missing, please recheck.", 400
+
+            if domain == email_domain:
+                if ldap.ldap_authenticate(account, passwd, ldap_settings):
+                    # Create user if nothing found
+                    user = registered_users.get(email)
+                    if not user:
+                        user = registered_users.add(email=email, timeout=timeout)
+
+                    if remember:
+                        login_user(user, remember=True)
+                    else:
+                        login_user(user)
+
+                    Debug("Login as {0} from account/password. remote_addr: {1}".format(user.account, ip))
+
+                    next = request.args.get("next")
+                    return redirect(next or url_for("api_key_get"))
+                else:
+                    return "Error! Recheck your email and password!", 403
+            else:
+                return "Are you sure that domain ({0}) is correct?".format(domain), 400
+        except Exception as e:
+            Debug("Something wrong happened during api_key_post(), remote_addr: {0}, reason: {1}.".format(ip, e))
+            return error_page("Error", "Something went wrong."), 500
+    """
 
     socketio.start_background_task(target=background_thread)
     socketio.run(app=app, host=web_host, port=web_port)

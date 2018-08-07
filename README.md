@@ -1,15 +1,15 @@
-# Email-Content-Filter-Framework
-An `Email-Content-Filter-Framework` project is a user-aware content filter which works for Postfix.
+# SendSwitch
+An `SendSwitch` project is a user-aware content filter which works for Postfix.
 
 ## About
-A `Content-Filter-Server` is a Postfix content filter program, which receives emails via SMTP, and packs emails and pushes packed messages into MessageQueue.
-With combination of MessageQueue's Pub/Sub, RPC, Authentication, and Authorization, which gave `Content-Filter-Server` the ability to distribute the incoming emails as RPC reuqests to many of individual `Content-Filter-Clients`.
-A `Content-Filter-Client` gets its own packed messages from MessageQueue, and can apply lots of processors on it, such as filtering, webhook processors, or even a sub-email system.
-For each of packed message, after handled by series of processors, `Content-Filter-Client` can choose to send a RPC response back into MessageQueue with an action in it, that tells the `Content-Filter-Server` how to handle this email.
+A `SendSwitch-Server` is a Postfix content filter program, which receives emails via SMTP, and packs emails and pushes packed messages into MessageQueue.
+With combination of MessageQueue's Pub/Sub, RPC, Authentication, and Authorization, which gave `SendSwitch-Server` the ability to distribute the incoming emails as RPC reuqests to many of individual `SendSwitch-Clients`.
+A `SendSwitch-Client` gets its own packed messages from MessageQueue, and can apply lots of processors on it, such as filtering, webhook processors, or even a sub-email system.
+For each of packed message, after handled by series of processors, `SendSwitch-Client` can choose to send a RPC response back into MessageQueue with an action in it, that tells the `SendSwitch-Server` how to handle this email.
 
 With this project, traditional mailbox or maildir delivery may become a backup method of email-based apps.
 
-Because of its support of SMTP, the `Email-Content-Filter-Framewor` may work with or without other SMTP MTAs, but we have only tested it with Postfix.
+Because of its support of SMTP, the `SendSwitch` may work with or without other SMTP MTAs, but we have only tested it with Postfix.
 It requires at least Python 3.5 to run.
 
 ## Features
@@ -18,7 +18,7 @@ It requires at least Python 3.5 to run.
     - [x] Based on smtplib and asyncio run_in_executor() to handle non-blocking send_mail function.
 - [x] Simple Web GUI interface.
 - [x] Simple logging mechanism for debugging.
-- [x] Multiple sample processors for `Content-Filter-Clients` to use.
+- [x] Multiple sample processors for `SendSwitch-Clients` to use.
     - [x] Sample PASS processor
     - [x] Webhook processor
     - [x] Blacklist Whitelist processor
@@ -47,7 +47,7 @@ It requires at least Python 3.5 to run.
 
 ## Server-Side Envionment Setup
 ```
-git clone https://github.com/hyili/Email-Content-Filter-Framework.git
+git clone https://github.com/hyili/SendSwitch.git
 git submodule update --init
 ```
 #### Python packages
@@ -59,7 +59,7 @@ pip3 install -r requirements
 or you can choose to use venv first
 ```
 python3 -m venv /path/to/new/virtual/environment
-mv Email-Content-Filter-Framework/ /path/to/new/virtual/environment
+mv SendSwitch/ /path/to/new/virtual/environment
 cd /path/to/new/virtual/environment
 source bin/activate
 pip3 install -r requirements
@@ -78,7 +78,7 @@ We use OpenLDAP as backend auth server, you can use configuration file config/ra
 Finally, using apps/setup_route.py to setup your MessageQueue routing
 #### MySQL
 Install MySQL on your system, and you can now setup your own route with this framework.
-After MySQL installation, import config/Email-Content-Filter-Framework.sql.
+After MySQL installation, import config/SendSwitch.sql.
 Finally, setup db information in config/server_config.py.
 #### Postfix
 Install Postfix on your system, and modify the following
@@ -145,7 +145,7 @@ Content-Type: application/json
 
 ## Client-Side Environment Setup
 ```
-git clone https://github.com/hyili/Email-Content-Filter-Framework.git
+git clone https://github.com/hyili/SendSwitch.git
 git submodule update --init
 ```
 #### apps/framework_client.py

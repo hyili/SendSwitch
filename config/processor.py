@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import re
 import requests
 import subprocess
 
@@ -37,9 +38,17 @@ class SlackProcessor(Processor):
     def target(self, msg):
         assert hasattr(self, "webhooks"), "you must call setWebhooks() first before calling run()."
 
+        # fetch subject and part of payload
         current_msg = msg.getMsg()
+        subject = str(current_msg["header"]["subject"][0])
+        if len(current_msg["payload"]) > 100:
+            payload = "{0} ...".format(str(current_msg["payload"][0:100]))
+        else:
+            payload = str(current_msg["payload"])
+
+        # construct according to slack webhook format
         data = {
-            "text": "```\n{0}\n```".format(str(current_msg["header"]["subject"]))
+            "text": "```\nSubject:\n{0}\nContent:\n{1}```".format(subject, payload)
         }
 
         # post to slack incoming webhook
@@ -57,7 +66,7 @@ class SlackProcessor(Processor):
 # Post to Outer Webhook Processor Sample
 class WebhookProcessor(Processor):
     def setWebhooks(self, webhooks):
-        assert isinstance(webhooks, list), "webhooks must call be a list."
+        assert isinstance(webhooks, list), "webhooks must be a list."
 
         self.webhooks = webhooks
 
@@ -84,31 +93,38 @@ class WebhookProcessor(Processor):
 
 # Blacklist/Whitelist sample
 class BlacklistWhitelistProcessor(Processor):
-    def setBlacklist(self, path):
-        # self.blacklist = ["<test@example.com>"]
-        self.blacklist = []
-        pass
+    def setBlacklist(self, addresses):
+        assert isinstance(addresses, list), "address must be a list."
 
-    def setWhitelist(self, path):
-        # self.whitelist = ["<test@example.com>"]
-        self.whitelist = []
-        pass
+        self.blacklist = addresses
+
+    def setWhitelist(self, addresses):
+        assert isinstance(addresses, list), "address must be a list."
+
+        self.whitelist = addresses
 
     def target(self, msg):
-        assert hasattr(self, "blacklist"), "you must call setBlacklist() first before calling run()."
-        assert hasattr(self, "whitelist"), "you must call setWhitelist() first before calling run()."
+        blacklist_enable = hasattr(self, "blacklist")
+        whitelist_enable = hasattr(self, "whitelist")
+        assert blacklist_enable or whitelist_enable, "you must call setBlacklist() or setWhitelist() first before calling run()."
 
-        for address in self.whitelist:
-            if address in msg["header"]["from"]:
-                print("Address in whitelist")
-                msg.setAction(macro.ACTION_PASS)
-                return msg
+        # https://tools.ietf.org/html/rfc5322#section-3.6.2
+        FROM_ADDR = re.compile(r"(.*) (<)?(.*)(>)?", re.IGNORECASE)
+        from_addr = re.sub(FROM_ADDR, r"\3", msg.getMsg()["header"]["from"][0], count=1)
 
-        for address in self.blacklist:
-            if address in msg["header"]["from"]:
-                print("Address in blacklist")
-                msg.setAction(macro.ACTION_DENY)
-                return msg
+        if whitelist_enable:
+            for address in self.whitelist:
+                if address == from_addr:
+                    print("Address in whitelist")
+                    msg.setAction(macro.ACTION_PASS)
+                    return msg
+
+        if blacklist_enable:
+            for address in self.blacklist:
+                if address == from_addr:
+                    print("Address in blacklist")
+                    msg.setAction(macro.ACTION_DENY)
+                    return msg
 
         return msg
 
@@ -154,8 +170,6 @@ class ClamAVProcessor(Processor):
     def target(self, msg):
         process = subprocess.Popen(["clamscan", "-"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         output, error = process.communicate(input=msg.getDecodedMsg())
-
-        print(msg.getDecodedMsg())
 
         ret = self.extract_result(output)
 
