@@ -95,6 +95,37 @@ def ManagementUI(config):
 
             socketio.sleep(1)
 
+    def checkLoop(uid):
+        # Get user routes
+        origin_user_routes = registered_user_routes.getUserRoutes(uid)
+        user_routes = dict()
+        for origin_user_route in origin_user_routes:
+            user_routes[origin_user_route.src.id] = origin_user_route.dst
+
+        # Get server routes
+        origin_server_routes = registered_server_routes.getServerRoutes()
+        server_routes = dict()
+        for origin_server_route in origin_server_routes:
+            server_routes[origin_server_route.src.id] = origin_server_route.dst
+
+        # Get routes
+        routes = dict()
+        routes.update(user_routes)
+        routes.update(server_routes)
+
+        keys = routes.keys()
+        temp = list()
+        for key in keys:
+            if routes[key].end:
+                continue
+            elif routes[key].id not in temp:
+                temp.append(routes[key].id)
+            else:
+                # Loop found
+                return True
+
+        return False
+
     def Debug(msg):
         logger.info(" [*] {0}".format(msg))
 
@@ -306,6 +337,10 @@ def ManagementUI(config):
             if current_user.routeStatus():
                 return "Already activated.", 200
             else:
+                # check user route if loop
+                if checkLoop(current_user.id):
+                    return "Loop found, unchanged", 200
+
                 if registered_users.activateRoute(current_user.id):
                     return "OK", 200
                 else:
@@ -338,6 +373,9 @@ def ManagementUI(config):
         try:
             # Get User's ip
             ip = request.remote_addr
+
+            if current_user.routeStatus():
+                return "Please deactivate before modifying your route.", 200
 
             local_sid = request.form.get("local_sid")
             remote_sid = request.form.get("remote_sid")
@@ -383,7 +421,7 @@ def ManagementUI(config):
 
             routes = registered_user_routes.getUserRoutes(current_user.id)
             if routes:
-                ret = str([(route.src.sid, route.dest.sid) for route in routes])
+                ret = str([(route.src.sid, route.dst.sid) for route in routes])
             else:
                 ret = str([])
 
@@ -526,7 +564,6 @@ def ManagementUI(config):
             Debug("Something wrong happened during smtp(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
-    # SMTP API
     @app.route("/api/api_key", methods=["Get"])
     @login_required
     def api_key_get():
@@ -554,7 +591,6 @@ def ManagementUI(config):
             Debug("Something wrong happened during api_key_get(), remote_addr: {0}, reason: {1}.".format(ip, e))
             return error_page("Error", "Something went wrong."), 500
 
-    # api login
     """
     @app.route("/api/api_key", methods=["Post"])
     def api_key_post():

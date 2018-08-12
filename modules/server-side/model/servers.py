@@ -24,7 +24,7 @@ class Servers():
     def Debug(self, msg):
         self.logger.info(" [*] {0}".format(msg))
 
-    def add(self, sid, hostname, port, source=True, dest=True):
+    def add(self, sid, hostname, port, source=True, dest=True, begin=False, end=False):
         if not (sid and hostname and port):
             return None
 
@@ -33,7 +33,7 @@ class Servers():
         if server:
             return None
 
-        server = Server(sid, hostname, port, source, dest, activate=True)
+        server = Server(sid, hostname, port, source, dest, begin, end, activate=True)
         session = self.sessionmaker()
         try:
             session.add(server)

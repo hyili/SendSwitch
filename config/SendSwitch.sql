@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- 主機: localhost
--- 產生時間： 2018 年 07 月 21 日 17:45
+-- 產生時間： 2018 年 08 月 12 日 10:47
 -- 伺服器版本: 5.6.40
 -- PHP 版本： 7.2.7
 
@@ -50,6 +50,8 @@ CREATE TABLE `server_profile` (
   `port` int(11) UNSIGNED NOT NULL COMMENT 'server port',
   `source` tinyint(1) NOT NULL COMMENT 'check if this server can be a data source server',
   `destination` tinyint(1) NOT NULL COMMENT 'check if this server can be a data destination server',
+  `begin` tinyint(1) NOT NULL COMMENT 'check if this server is a route end server, source column must be True',
+  `end` tinyint(1) NOT NULL COMMENT 'check if this server is a route begin server, destination column must be True',
   `activate` tinyint(1) NOT NULL COMMENT 'check if this server is activated',
   `created_at` datetime NOT NULL COMMENT 'when the record be created',
   `activated_at` datetime DEFAULT NULL COMMENT 'when the last time activate be changed'

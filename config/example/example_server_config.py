@@ -34,11 +34,11 @@ servers = servers.Servers(logger=logger, db_host=db_host, db_port=db_port, db_na
 # For Postfix to inject email
 Pi = servers.get("Postfix-incoming-node")
 if not Pi:
-    Pi = servers.add(sid="Postfix-incoming-node", hostname="localhost", port=8025, dest=False)
+    Pi = servers.add(sid="Postfix-incoming-node", hostname="localhost", port=8025, dest=False, begin=True)
 # For Postfix to eject email
 Po = servers.get("Postfix-outgoing-node")
 if not Po:
-    Po = servers.add(sid="Postfix-outgoing-node", hostname="localhost", port=10025, source=False)
+    Po = servers.add(sid="Postfix-outgoing-node", hostname="localhost", port=10025, source=False, end=True)
 
 # For Amavisd-new to inject email
 Ai = servers.get("Amavisd-new-incoming-node")

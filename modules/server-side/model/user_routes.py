@@ -76,10 +76,10 @@ class UserRoutes():
         session = self.sessionmaker()
         try:
             src = aliased(Server, name="src")
-            dest = aliased(Server, name="dest")
-            route = session.query(UserRoute, src, dest).\
+            dst = aliased(Server, name="dst")
+            route = session.query(UserRoute, src, dst).\
                 join(src, src.id==UserRoute.source_id).\
-                join(dest, dest.id==UserRoute.destination_id).\
+                join(dst, dst.id==UserRoute.destination_id).\
                 filter(and_(UserRoute.uid == uid, UserRoute.source_id == source_id)).\
                 one()
         except sqlalchemy.orm.exc.MultipleResultsFound as e:
@@ -102,10 +102,10 @@ class UserRoutes():
         session = self.sessionmaker()
         try:
             src = aliased(Server, name="src")
-            dest = aliased(Server, name="dest")
-            routes = session.query(UserRoute, src, dest).\
+            dst = aliased(Server, name="dst")
+            routes = session.query(UserRoute, src, dst).\
                 join(src, src.id==UserRoute.source_id).\
-                join(dest, dest.id==UserRoute.destination_id).\
+                join(dst, dst.id==UserRoute.destination_id).\
                 filter(UserRoute.uid == uid).\
                 all()
         except sqlalchemy.orm.exc.NoResultFound as e:

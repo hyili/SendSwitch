@@ -76,10 +76,10 @@ class ServerRoutes():
         session = self.sessionmaker()
         try:
             src = aliased(Server, name="src")
-            dest = aliased(Server, name="dest")
-            route = session.query(ServerRoute, src, dest).\
+            dst = aliased(Server, name="dst")
+            route = session.query(ServerRoute, src, dst).\
                 join(src, src.id==ServerRoute.source_id).\
-                join(dest, dest.id==ServerRoute.destination_id).\
+                join(dst, dst.id==ServerRoute.destination_id).\
                 filter(ServerRoute.source_id == source_id).\
                 one()
         except sqlalchemy.orm.exc.MultipleResultsFound as e:
@@ -99,10 +99,10 @@ class ServerRoutes():
         session = self.sessionmaker()
         try:
             src = aliased(Server, name="src")
-            dest = aliased(Server, name="dest")
-            routes = session.query(ServerRoute, src, dest).\
+            dst = aliased(Server, name="dst")
+            routes = session.query(ServerRoute, src, dst).\
                 join(src, src.id==ServerRoute.source_id).\
-                join(dest, dest.id==ServerRoute.destination_id).\
+                join(dst, dst.id==ServerRoute.destination_id).\
                 all()
         except sqlalchemy.orm.exc.NoResultFound as e:
             routes = list()

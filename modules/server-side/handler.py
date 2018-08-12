@@ -117,46 +117,35 @@ class SMTPProxyHandler(Proxy):
         #self.processing_mails.updateMail(corr_id, -1)
 
     def send_email(self, bundle, user):
-        # TODO: loop prevention
-        # get next hostname and port according to user's settings
-        next_hop_server_sid = self.next_hop_server.sid
-        next_hop_server_hostname = self.next_hop_server.hostname
-        next_hop_server_port = self.next_hop_server.port
-
-        if user and user.route_ready:
-            user_route = self.registered_user_routes.get(user.id, self.current_server.id)
-            if user_route:
-                next_hop_server_sid = user_route.dest.sid
-                next_hop_server_hostname = user_route.dest.hostname
-                next_hop_server_port = user_route.dest.port
-
-        self.Debug("Next hop id: {0}, host: {1}, port: {2}.".
-            format(next_hop_server_sid, next_hop_server_hostname, next_hop_server_port),
-            header=bundle.corr_id, bundle=bundle
-        )
-
-        content = bundle.envelope.original_content
-        lines = content.splitlines(keepends=True)
-
-        index = 0
-        ending = CRLF
-        for line in lines:
-            if NLCRE.match(line):
-                ending = line
-                break
-            index += 1
-
-        peer = bundle.session.peer[0].encode("ascii")
-        lines.insert(index, b"X-Peer: %s%s" % (peer, ending))
-        data = EMPTYBYTES.join(lines)
-
         try:
+            # get next hostname and port according to user's settings
+            next_hop_server_sid = self.next_hop_server.sid
+            next_hop_server_hostname = self.next_hop_server.hostname
+            next_hop_server_port = self.next_hop_server.port
+
+            if user and user.route_ready:
+                user_route = self.registered_user_routes.get(user.id, self.current_server.id)
+                if user_route:
+                    next_hop_server_sid = user_route.dst.sid
+                    next_hop_server_hostname = user_route.dst.hostname
+                    next_hop_server_port = user_route.dst.port
+
+            self.Debug("Next hop id: {0}, host: {1}, port: {2}.".
+                format(next_hop_server_sid, next_hop_server_hostname, next_hop_server_port),
+                header=bundle.corr_id, bundle=bundle
+            )
+
+            content = bundle.envelope.original_content
+            peer = bundle.session.peer[0].encode("ascii")
+            data = b"X-SendSwitch-Peer: %s%s%s" % (peer, CRLF, content)
+
             refused = self._send_email(bundle, data, next_hop_server_hostname, next_hop_server_port)
         except Exception as e:
-            return (471, "Failed, reason: {0}".format(e))
-
-        # TODO: this will have problem when group mailing is implemented
-        return refused[bundle.rcpt]
+            self.Debug("Something wrong happened during send_email(), reason: {0}.".format(e), header=bundle.corr_id)
+            refused = {bundle.rcpt: (471, "Failed, reason: Internal error occurred.")}
+        finally:
+            # TODO: this will have problem when group mailing is implemented
+            return refused[bundle.rcpt]
 
     def _send_email(self, bundle, data, next_hop_server_hostname, next_hop_server_port):
         refused = {}
@@ -393,8 +382,6 @@ class SMTPMQHandler(SMTPProxyHandler):
                     # Check if the receiver is registered
                     user = self.registered_users.get(bundle.rcpt)
 
-                    # TODO: Add corr_id to user's queuing_list
-
                     # Send message to MQ
                     self.send(bundle, user=user)
                 except Exception as e:
@@ -530,10 +517,10 @@ class SMTPMQHandler(SMTPProxyHandler):
             if result["result"] & macro.TAG_NOTHING:
                 pass
             if result["result"] & macro.TAG_SPAM:
-                bundle.envelope.original_content = re.sub(SUBJECT, br"\1\2 ***SPAM*** \3\4", bundle.envelope.original_content, count=1)
+                bundle.envelope.original_content = re.sub(SUBJECT, br"\1\2 ***SPAM***\3\4", bundle.envelope.original_content, count=1)
                 self.Debug("Tag it SPAM, reason: TAG_SPAM.", header=bundle.corr_id, bundle=bundle)
             if result["result"] & macro.TAG_VIRUS:
-                bundle.envelope.original_content = re.sub(SUBJECT, br"\1\2 ***VIRUS*** \3\4", bundle.envelope.original_content, count=1)
+                bundle.envelope.original_content = re.sub(SUBJECT, br"\1\2 ***VIRUS***\3\4", bundle.envelope.original_content, count=1)
                 self.Debug("Tag it VIRUS, reason: TAG_VIRUS.", header=bundle.corr_id, bundle=bundle)
 
             # Apply ACTION to the email, can only apply one action
@@ -668,39 +655,46 @@ class SMTPMQHandler(SMTPProxyHandler):
 
     async def timeout_mod(self):
         while True:
-            # run every 10*random secs
-            await asyncio.sleep(random.random()*10)
-            timestamp = int(time.time())
+            try:
+                # run every 10*random secs
+                await asyncio.sleep(random.random()*10)
+                timestamp = int(time.time())
 
-            # check if the mail have flush request
-            while True:
-                corr_id = self.flush.recv()
-                if corr_id is not None:
+                # check if the mail have flush request
+                while True:
+                    corr_id = self.flush.recv()
+                    if corr_id is not None:
+                        bundle = self.SMTP_session_bundles[corr_id]
+                        last_retry_timestamp = bundle.last_retry_timestamp
+                        rcpt = bundle.rcpt
+                        user = self.registered_users.get(rcpt)
+
+                        self.send(bundle, user=user, direct=False)
+                        bundle.last_retry_timestamp = timestamp
+                    else:
+                        break
+
+                # run through every monitored emails
+                for corr_id in self.SMTP_session_bundles:
                     bundle = self.SMTP_session_bundles[corr_id]
                     last_retry_timestamp = bundle.last_retry_timestamp
                     rcpt = bundle.rcpt
                     user = self.registered_users.get(rcpt)
 
-                    self.send(bundle, user=user, direct=False)
-                    bundle.last_retry_timestamp = timestamp
-                else:
-                    break
+                    # using default timeout if no user settings
+                    if user and user.service_ready:
+                        timeout = user.timeout * 2
+                    # reset timeout, *2 means to wait for MQ Message timeout first
+                    else:
+                        timeout = self.config.kwargs["timeout"] * 2
 
-            # run through every monitored emails
-            for corr_id in self.SMTP_session_bundles:
-                bundle = self.SMTP_session_bundles[corr_id]
-                last_retry_timestamp = bundle.last_retry_timestamp
-                rcpt = bundle.rcpt
-                user = self.registered_users.get(rcpt)
-
-                # using default timeout if no user settings
-                if user and user.service_ready:
-                    timeout = user.timeout * 2
-                # reset timeout, *2 means to wait for MQ Message timeout first
-                else:
-                    timeout = self.config.kwargs["timeout"] * 2
-
-                # check if time is up
-                if timestamp - last_retry_timestamp > timeout:
-                    self.send(bundle, user=user, direct=True)
-                    bundle.last_retry_timestamp = timestamp
+                    # check if time is up
+                    if timestamp - last_retry_timestamp > timeout:
+                        self.send(bundle, user=user, direct=True)
+                        bundle.last_retry_timestamp = timestamp
+            except asyncio.CancelledError:
+                for subtask in self.subtasks:
+                    subtask.cancel()
+                break
+            except Exception as e:
+                self.Debug("Something wrong happened during returnmq_mod(), reason: {0}.".format(e))
