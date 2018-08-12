@@ -21,7 +21,7 @@ class Server(Base):
     created_at = Column(DateTime)
     activated_at = Column(DateTime)
 
-    def __init__(self, sid, hostname, port, source, begin, end, destination, activate):
+    def __init__(self, sid, hostname, port, source, destination, begin, end, activate):
         self.sid = sid
         self.hostname = hostname
         self.port = port

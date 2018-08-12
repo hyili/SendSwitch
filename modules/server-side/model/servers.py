@@ -33,7 +33,7 @@ class Servers():
         if server:
             return None
 
-        server = Server(sid, hostname, port, source, dest, begin, end, activate=True)
+        server = Server(sid, hostname, port, source=source, destination=dest, begin=begin, end=end, activate=True)
         session = self.sessionmaker()
         try:
             session.add(server)
