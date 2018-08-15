@@ -72,15 +72,21 @@ class Receiver():
 
     # using user-defined processors to handle incoming email
     def email_handler(self, msg, processors):
+        # force termination of processing
+        terminated = False
+
         # Email Decoder
-        current_msg = self.ED_processor.run(msg)
+        current_msg, terminated = self.ED_processor.run(msg)
 
         # Redirect to Output
-        current_msg = self.RO_processor.run(current_msg)
+        current_msg, terminated = self.RO_processor.run(current_msg)
 
         # Start user's processors
         for processor in processors:
-            current_msg = processor.run(current_msg)
+            current_msg, terminated = processor.run(current_msg)
+            if terminated:
+                self.Debug("Force termination in {0}.".format(processor.__class__.__name__))
+                break
 
         return current_msg
 

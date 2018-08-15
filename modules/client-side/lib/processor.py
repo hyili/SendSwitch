@@ -13,6 +13,7 @@ class Processor():
         self.description = description
         self.enable = enable
         self.silent_mode = silent_mode
+        self.terminated = False
 
     def Debug(self, msg):
         if not self.silent_mode:
@@ -33,6 +34,12 @@ class Processor():
     def isActivate(self):
         return self.enable
 
+    def terminate(self):
+        self.terminated = True
+
+    def isTerminated(self):
+        return self.terminated
+
     # customized function here
     def target(self, msg):
         # define your function below
@@ -44,7 +51,7 @@ class Processor():
             self.Debug("{0} is active, Start to process.".format(self.__class__.__name__))
         else:
             self.Debug("{0} is inactive, Skipped.".format(self.__class__.__name__))
-            return msg
+            return msg, self.isTerminated()
 
         # Build a new_msg using for customized target
         new_msg = copy.deepcopy(msg)
@@ -64,7 +71,7 @@ class Processor():
             self.Debug("Some error occurred during {0}... Error shows below, Skipped this function".format(self.__class__.__name__))
             self.Debug(e)
         finally:
-            return ret_msg
+            return ret_msg, self.isTerminated()
 
 # Email Encoder/Decoder
 class EmailDecodeProcessor(Processor):

@@ -188,5 +188,6 @@ class DelayProcessor(Processor):
     def target(self, msg):
         msg.setAction(macro.ACTION_DELAY)
         msg.setReason("wait for a while")
+        self.terminate()
 
         return msg
