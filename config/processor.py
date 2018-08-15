@@ -183,3 +183,10 @@ class ClamAVProcessor(Processor):
             print("Not VIRUS.")
         finally:
             return msg
+
+class DelayProcessor(Processor):
+    def target(self, msg):
+        msg.setAction(macro.ACTION_DELAY)
+        msg.setReason("wait for a while")
+
+        return msg

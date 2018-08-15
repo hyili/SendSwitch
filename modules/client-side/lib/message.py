@@ -15,6 +15,7 @@ class Message():
         self.current_msg = None
 
         self.forward_address = None
+        self.reason = None
 
     def setDecodedMsg(self, decoded_msg):
         self.decoded_msg = decoded_msg
@@ -51,3 +52,9 @@ class Message():
 
     def getForward(self):
         return self.forward_address
+
+    def setReason(self, reason):
+        self.reason = reason
+
+    def getReason(self):
+        return self.reason

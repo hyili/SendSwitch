@@ -6,7 +6,7 @@ import datetime
 import json
 import requests
 
-from lib.protocols import Request
+from protocols import Request
 
 class Sender():
     def __init__(self, user, logger, timeout=600, exchange_id="random", routing_keys=["random"],

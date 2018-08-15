@@ -7,7 +7,8 @@ import datetime
 import email
 import requests
 
-from lib.protocols import Response
+from protocols import Response
+
 from lib.processor import EmailDecodeProcessor, RedirectOutputProcessor
 from lib.message import Message
 
@@ -92,7 +93,7 @@ class Receiver():
             self.Debug("Received, data: {0}.".format(data))
 
             # Build a Message object with request protocol "data", and "result"
-            msg = Message(data["data"], data["result"])
+            msg = Message(data["data"], origin_action=data["action"]["id"], origin_result=data["result"]["id"])
 
             # email handler
             current_processors = list(self.processors)
@@ -105,7 +106,7 @@ class Receiver():
             expire = self.timeout * 1000
 
             response = Response(timestamp=timestamp, expire=expire, action=current_msg.getAction(),
-                result=current_msg.getResult(), forward=current_msg.getForward())
+                result=current_msg.getResult(), reason=current_msg.getReason(), forward=current_msg.getForward())
 
             # send response backto default exchanger
             channel.basic_publish(exchange="return",

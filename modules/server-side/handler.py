@@ -47,6 +47,8 @@ class SMTPSessionBundle():
         self.rcpt = rcpt
         self.created_timestamp = int(time.time())
         self.last_retry_timestamp = self.created_timestamp
+        self.timeout_retried = False
+        self.timeout_retried_times = 0
         self.server = server
         self.session = session
         self.envelope = copy.deepcopy(envelope)
@@ -513,47 +515,67 @@ class SMTPMQHandler(SMTPProxyHandler):
     def apply_action(self, bundle, result, user):
         # This handles the message that server send to itself
         try:
+            # Pre apply ACTION to the email
+            # ACTION_DELAY
+            if result["action"]["id"] & macro.ACTION_DELAY:
+                timestamp = int(time.time())
+
+                bundle.timeout_retried = False
+                bundle.last_retry_timestamp = timestamp
+                self.Debug("Wait for resend, reason: ACTION_DELAY ({0}).".format(result["result"]["reason"]), header=bundle.corr_id, bundle=bundle)
+
+                # Gen result
+                result = (471, "Wait for resend, reason: ACTION_DELAY")
+
+                # Return directly
+                return
+
             # TAG the email, can use multiple tags here
-            if result["result"] & macro.TAG_NOTHING:
+            # TAG_NOTHING
+            if result["result"]["id"] & macro.TAG_NOTHING:
                 pass
-            if result["result"] & macro.TAG_SPAM:
+            # TAG_SPAM
+            if result["result"]["id"] & macro.TAG_SPAM:
                 bundle.envelope.original_content = re.sub(SUBJECT, br"\1\2 ***SPAM***\3\4", bundle.envelope.original_content, count=1)
                 self.Debug("Tag it SPAM, reason: TAG_SPAM.", header=bundle.corr_id, bundle=bundle)
-            if result["result"] & macro.TAG_VIRUS:
+            # TAG_VIRUS
+            if result["result"]["id"] & macro.TAG_VIRUS:
                 bundle.envelope.original_content = re.sub(SUBJECT, br"\1\2 ***VIRUS***\3\4", bundle.envelope.original_content, count=1)
                 self.Debug("Tag it VIRUS, reason: TAG_VIRUS.", header=bundle.corr_id, bundle=bundle)
 
-            # Apply ACTION to the email, can only apply one action
+            # Post apply ACTION to the email, can only apply one action
             # ACTION_DEFAULT
-            if result["action"] & macro.ACTION_DEFAULT:
+            if result["action"]["id"] & macro.ACTION_DEFAULT:
                 bundle.status = 0
                 SMTP_result = self.send_email(bundle, user)
-                self.Debug("Send to {0}, reason: ACTION_DEFAULT.".format(bundle.rcpt), header=bundle.corr_id, bundle=bundle)
+                self.Debug("Send to {0}, reason: ACTION_DEFAULT ({1}).".format(bundle.rcpt, result["result"]["reason"]), header=bundle.corr_id, bundle=bundle)
 
                 # Check result and update bundle status
                 result = self.check_SMTP_session_bundle(bundle, SMTP_result)
             # ACTION_PASS
-            elif result["action"] & macro.ACTION_PASS:
+            elif result["action"]["id"] & macro.ACTION_PASS:
                 bundle.status = 1
                 SMTP_result = self.send_email(bundle, user)
-                self.Debug("Send to {0}, reason: ACTION_PASS.".format(bundle.rcpt), header=bundle.corr_id, bundle=bundle)
+                self.Debug("Send to {0}, reason: ACTION_PASS ({1}).".format(bundle.rcpt, result["result"]["reason"]), header=bundle.corr_id, bundle=bundle)
 
                 # Check result and update bundle status
                 result = self.check_SMTP_session_bundle(bundle, SMTP_result)
             # ACTION_DENY
-            elif result["action"] & macro.ACTION_DENY:
-                self.Debug("Remove it, reason: ACTION_DENY.", header=bundle.corr_id, bundle=bundle)
+            elif result["action"]["id"] & macro.ACTION_DENY:
+                self.Debug("Remove it, reason: ACTION_DENY ({0}).".format(result["result"]["reason"]), header=bundle.corr_id, bundle=bundle)
+
+                # Gen result
                 result = (451, "Rejected by receiver's content filter, reason: ACTION_DENY")
             # ACTION_FORWARD
-            elif result["action"] & macro.ACTION_FORWARD:
-                if "forward" in result:
+            elif result["action"]["id"] & macro.ACTION_FORWARD:
+                if "forward" in result["action"]:
                     # Reset receiver's information
-                    bundle.rcpt = result["forward"]
-                    bundle.envelope.rcpt_tos = [result["forward"]]
+                    bundle.rcpt = result["action"]["forward"]
+                    bundle.envelope.rcpt_tos = [result["action"]["forward"]]
 
                     bundle.status = 1
                     SMTP_result = self.send_email(bundle, None)
-                    self.Debug("Forward to {0}, reason: ACTION_FORWARD.".format(result["forward"]), header=bundle.corr_id, bundle=bundle)
+                    self.Debug("Forward to {0}, reason: ACTION_FORWARD ({1}).".format(result["action"]["forward"], result["result"]["reason"]), header=bundle.corr_id, bundle=bundle)
                 else:
                     bundle.status = 1
                     SMTP_result = self.send_email(bundle, user)
@@ -562,13 +584,15 @@ class SMTPMQHandler(SMTPProxyHandler):
                 # Check result and update bundle status
                 result = self.check_SMTP_session_bundle(bundle, SMTP_result)
             # ACTION_QUARATINE
-            elif result["action"] & macro.ACTION_QUARANTINE:
+            elif result["action"]["id"] & macro.ACTION_QUARANTINE:
                 self.Debug("Remove it, reason: Not implement ACTION_QUARATINE.", header=bundle.corr_id, bundle=bundle)
+
+                # Gen result
                 result = (451, "Rejected by receiver's content filter, reason: ACTION_QUARATINE (NOT IMPLEMENT)")
             # OTHERS
             else:
-                self.Debug("Remove it, reason: Unknown action code {0}.".format(result["action"]), header=bundle.corr_id, bundle=bundle)
-                result = (451, "Rejected by receiver's content filter, reason: Unknown action code {0}.".format(result["action"]))
+                self.Debug("Remove it, reason: Unknown action code {0}.".format(result["action"]["id"]), header=bundle.corr_id, bundle=bundle)
+                result = (451, "Rejected by receiver's content filter, reason: Unknown action code {0}.".format(result["action"]["id"]))
 
             # Pop finished job from SMTP_session_bundles
             self.finish(bundle.corr_id)
@@ -596,8 +620,8 @@ class SMTPMQHandler(SMTPProxyHandler):
 
                         # Check if return messages' publisher correct
                         _result, routing_key = self.handler.get_result(corr_id)
-                        if routing_key != "mail.{0}".format(bundle.rcpt):
-                            self.Debug("Catch an unusual message with routing_key {0}.".format(routing_key), header=corr_id)
+                        if routing_key != "mail.{0}".format(bundle.rcpt) and routing_key != "return":
+                            self.Debug("Catch an unusual message with routing_key \'{0}\'.".format(routing_key), header=corr_id)
                             continue
 
                         result = json.loads(_result)
@@ -674,6 +698,7 @@ class SMTPMQHandler(SMTPProxyHandler):
                     else:
                         break
 
+                # TODO: DB query optimization
                 # run through every monitored emails
                 for corr_id in self.SMTP_session_bundles:
                     bundle = self.SMTP_session_bundles[corr_id]
@@ -690,8 +715,14 @@ class SMTPMQHandler(SMTPProxyHandler):
 
                     # check if time is up
                     if timestamp - last_retry_timestamp > timeout:
-                        self.send(bundle, user=user, direct=True)
-                        bundle.last_retry_timestamp = timestamp
+                        if bundle.timeout_retried or bundle.timeout_retried_times > 10:
+                            self.send(bundle, user=user, direct=True)
+                            bundle.last_retry_timestamp = timestamp
+                        else:
+                            self.send(bundle, user=user, direct=False)
+                            bundle.last_retry_timestamp = timestamp
+                            bundle.timeout_retried_times += 1
+                            bundle.timeout_retried = True
             except asyncio.CancelledError:
                 for subtask in self.subtasks:
                     subtask.cancel()

@@ -79,7 +79,7 @@ class per_user_install():
             durable=True,
             arguments={
                 "x-dead-letter-exchange": "return",
-                "x-dead-letter-routing-key": "return"
+                "x-dead-letter-routing-key": "mail.{0}@{1}".format(self.username, self.email_domain)
             }
         )
 
