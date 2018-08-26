@@ -164,9 +164,9 @@ class SMTPProxyHandler(Proxy):
 
                 # Though s.sendmail can done almost everything, it cannot get the reply
                 s.docmd("HELO {0}".format(self.config.kwargs["host_domain"]))
-                s.docmd("MAIL FROM:", "<{0}>".format(mail_from))
+                s.docmd("MAIL FROM:", "{0}".format(mail_from))
                 for rcpt in rcpt_tos:
-                    s.docmd("RCPT TO:", "<{0}>".format(rcpt))
+                    s.docmd("RCPT TO:", "{0}".format(rcpt))
                 s.docmd("DATA")
                 s.send(data)
                 s.send("\r\n.\r\n")
