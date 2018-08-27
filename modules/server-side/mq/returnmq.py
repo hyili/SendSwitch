@@ -26,6 +26,13 @@ class Receiver():
         self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.host, port=self.port))
         self.channel = self.connection.channel()
 
+        # declare response queue
+        # callback_queue: a queue for receiver to write, and can only read
+        # using current connection
+        self.response = self.channel.queue_declare(queue="return",
+            durable=True,
+        )
+
         # set consume_response to consume the response, and use only once
         self.channel.basic_consume(self.consume_response,
             no_ack=True,

@@ -9,7 +9,7 @@ import requests
 
 from protocols import Response
 
-from lib.processor import EmailDecodeProcessor, RedirectOutputProcessor
+from lib.processor import Processor, EmailDecodeProcessor, RedirectOutputProcessor
 from lib.message import Message
 
 class Receiver():
@@ -83,10 +83,14 @@ class Receiver():
 
         # Start user's processors
         for processor in processors:
-            current_msg, terminated = processor.run(current_msg)
-            if terminated:
-                self.Debug("Force termination in {0}.".format(processor.__class__.__name__))
-                break
+            if isinstance(processor, Processor):
+                current_msg, terminated = processor.run(current_msg)
+                if terminated:
+                    self.Debug("Force termination in {0}.".format(processor.__class__.__name__))
+                    break
+            else:
+                self.Debug("Invalid object type {0} in processors list.".format(processor.__class__.__name__))
+                continue
 
         return current_msg
 
