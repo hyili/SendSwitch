@@ -36,6 +36,7 @@ class Processor():
 
     def terminate(self):
         self.terminated = True
+        exit()
 
     def isTerminated(self):
         return self.terminated
@@ -55,6 +56,7 @@ class Processor():
 
         # Build a new_msg using for customized target
         new_msg = copy.deepcopy(msg)
+        ret_msg = msg
 
         # run target function
         try:
@@ -65,9 +67,7 @@ class Processor():
             # if nothing comes back
             if ret_msg is None:
                 self.Debug("Nothing returns back, returning the previous arguments.")
-                ret_msg = msg
         except Exception as e:
-            ret_msg = msg
             self.Debug("Some error occurred during {0}... Error shows below, Skipped this function".format(self.__class__.__name__))
             self.Debug(e)
         finally:
