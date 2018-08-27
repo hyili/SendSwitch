@@ -4,6 +4,7 @@
 # that RabbitMQ reveals in public network may cause problems
 
 import sys
+import time
 
 sys.path.append("../modules/share")
 sys.path.append("../modules/client-side")
@@ -24,7 +25,11 @@ try:
     print(" [*] Waiting for messages. To exit press CTRL+C")
 
     controller.start()
-    web.ManagementUI(config)
+    if config.kwargs["web_enable"]:
+        web.ManagementUI(config)
+    else:
+        while True:
+            time.sleep(600)
 
     print(" [*] Quit.")
     controller.stop()

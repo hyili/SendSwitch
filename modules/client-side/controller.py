@@ -32,7 +32,7 @@ class ClientController():
         auth = self.config.kwargs["auth"]
         while True:
             try:
-                self.receiver = Receiver(vhost=auth["vhost"], user=auth["user"], password=auth["password"], processors=self.processors, output=self.output)
+                self.receiver = Receiver(vhost=auth["vhost"], host=self.config.kwargs["MQ_host"], port=self.config.kwargs["MQ_port"], user=auth["user"], password=auth["password"], processors=self.processors, output=self.output)
                 self.receiver.run()
                 break
             except Exception as e:
