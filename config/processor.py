@@ -191,3 +191,78 @@ class DelayProcessor(Processor):
         self.terminate()
 
         return msg
+
+class VotingProcessor(Processor):
+    def setCandidate(self, name):
+        if not hasattr(self, "candidates"):
+            self.candidates = dict()
+        if not hasattr(self, "voters"):
+            self.voters = dict()
+
+        print("Add \"{0}\" to candidate".format(name))
+        self.candidates[name] = 0
+        self.voters[name] = list()
+
+    def setAPI(self, api, api_key):
+        self.api = api
+        self.api_key = api_key
+
+    def setSender(self, sender)
+        self.sender = sender
+
+    def vote(self, who, what):
+        if what in self.candidates:
+            if who not in self.voters[what]:
+                self.candidates[what] += 1
+                self.voters[what].append(who)
+                return "OK, vote for \"{0}\"".format(what)
+            return "Repeat voting is not allowed"
+        return "No such candidate \"{0}\"".format(what)
+
+    def result(self, who, result):
+        data = {
+            "api_key": self.api_key,
+            "data": {
+                "mail_from": self.sender,
+                "mail_to": [who],
+                "cc_to": [],
+                "bcc_to": [],
+                "subject": "[Vote] Result",
+                "content": result
+            }
+        }
+
+        r = requests.post(
+            self.api,
+            json=data
+        )
+
+        print(r.status_code)
+        print(r.text)
+
+
+    def target(self, msg):
+        assert hasattr(self, "candidates") and hasattr(self, "voters"), "you must call setCandidate() first before calling run()."
+        assert hasattr(self, "api") and hasattr(self, "api_key"), "you must call setAPI() first before calling run()."
+        assert hasattr(self, "sender"), "you must call setSender() first before calling run()."
+
+        # https://tools.ietf.org/html/rfc5322#section-3.6.2
+        subject_format = re.compile(r"-<-VOTE->-", re.IGNORECASE)
+        sender_format = re.compile(r"(.*) (<)?(.*)(>)?", re.IGNORECASE)
+        candidate_format = re.compile(r"(.*)-<-(.*)->-(.*)", re.DOTALL)
+
+        current_msg = msg.getMsg()
+        subject = re.search(subject_format, current_msg["header"]["subject"][0])
+        if subject is None:
+            print("not voting email")
+            return msg
+
+        sender = re.sub(sender_format, r"\3", current_msg["header"]["from"][0])
+        candidate = re.sub(candidate_format, r"\2", current_msg["payload"])
+
+        ret_msg = self.vote(sender, candidate)
+        self.result(sender, ret_msg)
+
+        print(self.candidates)
+
+        return msg
